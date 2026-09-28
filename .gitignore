@@ -1,0 +1,25 @@
+# 데이터·산출물 — 용량이 커서 구글드라이브로 공유
+data/
+outputs/*
+!outputs/results/
+
+# 서명·생년월일이 들어간 제출본 — 비공개 저장소라도 이력에 남기지 않음
+docs/**/*과제수행계획서(*).pdf
+docs/**/*결과보고서(*).pdf
+docs/capstone2/\[학생\]*.hwp
+
+# 개인 도구 설정 — graphify·Claude Code 훅은 윈도우 PC 전용
+graphify-out/
+.claude/
+CLAUDE.md
+
+# 파이썬
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
