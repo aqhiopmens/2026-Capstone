@@ -28,8 +28,13 @@
 | 코드 작성·디버깅 | 로컬 | 빠른 반복 |
 | pcap 추출 (약 4GB) | 로컬 (김강민) | 대용량 파일 읽기. Colab의 드라이브 읽기는 느림 |
 | A트랙 전처리 (56MB) | 로컬 | 가벼움 |
-| 본 실험 반복 (10조합 × 시드 3 = 30회, [plan.md](plan.md) 참조) | Colab Pro | 로컬 기계를 비워둠. 8GB 맥 부담 회피 |
+| 본 실험 반복 (10조합 × 시드 3 = 30회, [plan.md](plan.md) 참조) | Colab (무료로 충분) | 로컬 기계를 비워둠. 8GB 맥 부담 회피 |
 | **보고서에 넣는 최종 수치** | **Colab** | 두 사람 PC와 무관한 중립 환경 → 누가 돌려도 같은 숫자 |
+
+**Colab 런타임 규칙**
+- 런타임 버전은 노트북마다 **2026.07**로 고정한다 (두 사람 모두, 무료 계정도 선택 가능). 로컬 `uv.lock`도 이 버전에 맞춰져 있다
+- RF·LightGBM은 **CPU 런타임**, GPU는 1D-CNN·LSTM을 돌릴 때만 켠다
+- 보고서용 딥러닝 수치는 두 사람 모두 **T4**로 통일한다 (GPU 종류가 바뀌면 수치가 조금씩 달라짐)
 | 대시보드, 시연용 축소 pcap, 데모 영상 | 로컬 (김강민) | 발표 기계에서 인터넷 없이 동작해야 함 |
 
 ## 저장소 구조 (계획)
@@ -72,23 +77,32 @@
 2. `brew install uv libomp` — `libomp`는 LightGBM에 필요
 3. `~/.zshrc`에 `export DATA_DIR=<데이터를 둘 로컬 경로>` 추가
 4. A트랙에 필요한 `raw/malicious_tls/`만 드라이브에서 받아 `DATA_DIR` 아래에 둔다
-5. (파이썬 프로젝트 파일이 생긴 뒤) 저장소 폴더에서 `uv sync`
+5. 저장소 폴더에서 `uv sync` (파이썬 3.12와 패키지를 자동 설치)
 
 ### 윈도우 (김강민)
 1. `DATA_DIR` 환경변수를 로컬 데이터 폴더로 설정
-2. (파이썬 프로젝트 파일이 생긴 뒤) 저장소 폴더에서 `uv sync`
+2. 저장소 폴더에서 `uv sync` (파이썬 3.12와 패키지를 자동 설치)
 
 ### Colab
-```python
-from google.colab import drive
-drive.mount('/content/drive')
-!git clone https://github.com/aqhiopmens/2026-Capstone.git
-%cd 2026-Capstone
-!pip install -r requirements.txt
-import os
-os.environ['DATA_DIR'] = '/content/drive/MyDrive/2026-Capstone-data'
-```
-`requirements.txt`는 `uv.lock`에서 내보낸 파일이다 (`uv export --no-hashes > requirements.txt`).
+노트북을 새로 열 때마다 아래 순서를 따른다.
+
+1. 메뉴 **런타임 → 런타임 유형 변경** → 런타임 버전을 **2026.07**로 선택 (하드웨어는 RF·LightGBM이면 CPU, 딥러닝이면 T4 GPU)
+2. 아래 줄을 실행해서 결과가 `3.12.13 2.0.2 2.2.2 1.6.1 4.6.0 2.11.0`으로 시작하는지 확인
+   ```python
+   import sys, numpy, pandas, sklearn, lightgbm, torch; print(sys.version.split()[0], numpy.__version__, pandas.__version__, sklearn.__version__, lightgbm.__version__, torch.__version__)
+   ```
+3. 다르면 실험을 돌리지 말고 팀장에게 알린다
+4. 드라이브 연결과 저장소 준비
+   ```python
+   from google.colab import drive
+   drive.mount('/content/drive')
+   !git clone https://github.com/aqhiopmens/2026-Capstone.git
+   %cd 2026-Capstone
+   import os
+   os.environ['DATA_DIR'] = '/content/drive/MyDrive/2026-Capstone-data'
+   ```
+
+패키지는 설치하지 않고 런타임에 기본으로 깔린 것을 쓴다. numpy 등을 다시 설치하면 런타임 재시작이 필요해질 수 있다.
 
 ## 브랜치와 PR
 
@@ -112,12 +126,16 @@ os.environ['DATA_DIR'] = '/content/drive/MyDrive/2026-Capstone-data'
 | seed | 0, 1, 2 |
 | macro_f1 | 0.8712 |
 | accuracy | 0.9531 |
-| machine | kyle-win, eunbin-mac, colab |
+| machine | kyle-win, eunbin-mac, colab-cpu, colab-T4 |
+| sklearn | 1.6.1 (`sklearn.__version__`) |
+| lightgbm | 4.6.0 (`lightgbm.__version__`) |
+| torch | 2.11.0 (`torch.__version__`, 딥러닝 실험만) |
 | note | 자유 기재 |
 
 - 시드는 3회 반복하고 평균·편차를 보고한다
 - macro-F1은 항상 함께 기록한다 (정확도 단독 보고 금지)
-- `machine` 컬럼으로 어디서 나온 숫자인지 구분한다. 보고서에는 `colab` 행만 쓴다
+- `machine` 컬럼으로 어디서 나온 숫자인지 구분한다. 보고서에는 `colab-cpu`(RF·LightGBM)와 `colab-T4`(딥러닝) 행만 쓴다
+- 버전 컬럼은 런타임 고정이 실제로 지켜졌는지 확인하는 용도다. 위 Colab 2단계 값과 다르면 그 행은 보고서에 쓰지 않는다
 
 ## 주간 리듬
 
