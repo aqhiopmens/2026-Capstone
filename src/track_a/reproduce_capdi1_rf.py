@@ -19,7 +19,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-from src.common.config import DATA_DIR
+from src.common.config import DATA_DIR, MACHINE
 
 CAPDI1_ACC = {117: 0.9903, 68: 0.9911}
 TOLERANCE = 0.001  # ±0.1%p
@@ -57,7 +57,7 @@ def main():
         rows.append({
             "date": date.today().isoformat(), "track": "A", "experiment": "capdi1_reproduce",
             "split": "random", "feature_group": f"capdi1_{n}", "model": "rf", "seed": 42,
-            "macro_f1": round(f1, 4), "accuracy": round(acc, 4), "machine": "kyle-win",
+            "macro_f1": round(f1, 4), "accuracy": round(acc, 4), "machine": MACHINE,
             "sklearn": sklearn.__version__, "lightgbm": lightgbm.__version__, "torch": "",
             "note": "캡디1 정제본·특징 선택본 그대로 사용",
         })
