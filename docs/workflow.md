@@ -8,6 +8,7 @@
 2. **데이터는 드라이브 공유 폴더 한 곳.** git에는 데이터를 넣지 않는다.
 3. **결과는 GitHub로 모은다.** 실험 결과 CSV를 `outputs/results/`에 커밋해 통합 결과표를 만든다.
 4. **경로는 코드에 쓰지 않는다.** 데이터 위치는 환경변수 `DATA_DIR` 하나로만 받는다.
+5. **실행 기계도 코드에 쓰지 않는다.** 결과 CSV의 `machine` 값은 환경변수 `MACHINE`으로 받는다. 둘 중 하나라도 없으면 코드가 멈춘다.
 
 ## 역할과 기계 배치 (확정 — 하드웨어 기준)
 
@@ -75,12 +76,12 @@
 ### 맥 (서은빈)
 1. Homebrew가 없으면 먼저 설치
 2. `brew install uv libomp` — `libomp`는 LightGBM에 필요
-3. `~/.zshrc`에 `export DATA_DIR=<데이터를 둘 로컬 경로>` 추가
+3. `~/.zshrc`에 `export DATA_DIR=<데이터를 둘 로컬 경로>`와 `export MACHINE=eunbin-mac` 추가
 4. A트랙에 필요한 `raw/malicious_tls/`만 드라이브에서 받아 `DATA_DIR` 아래에 둔다
 5. 저장소 폴더에서 `uv sync` (파이썬 3.12와 패키지를 자동 설치)
 
 ### 윈도우 (김강민)
-1. `DATA_DIR` 환경변수를 로컬 데이터 폴더로 설정
+1. `DATA_DIR` 환경변수를 로컬 데이터 폴더로, `MACHINE` 환경변수를 `kyle-win`으로 설정
 2. 저장소 폴더에서 `uv sync` (파이썬 3.12와 패키지를 자동 설치)
 
 ### Colab
@@ -100,6 +101,7 @@
    %cd 2026-Capstone
    import os
    os.environ['DATA_DIR'] = '/content/drive/MyDrive/2026-Capstone-data'
+   os.environ['MACHINE'] = 'colab-cpu'  # 딥러닝(GPU 런타임)이면 'colab-T4'
    ```
 
 패키지는 설치하지 않고 런타임에 기본으로 깔린 것을 쓴다. numpy 등을 다시 설치하면 런타임 재시작이 필요해질 수 있다.
@@ -134,7 +136,7 @@
 
 - 시드는 3회 반복하고 평균·편차를 보고한다
 - macro-F1은 항상 함께 기록한다 (정확도 단독 보고 금지)
-- `machine` 컬럼으로 어디서 나온 숫자인지 구분한다. 보고서에는 `colab-cpu`(RF·LightGBM)와 `colab-T4`(딥러닝) 행만 쓴다
+- `machine` 컬럼(환경변수 `MACHINE` 값)으로 어디서 나온 숫자인지 구분한다. 보고서에는 `colab-cpu`(RF·LightGBM)와 `colab-T4`(딥러닝) 행만 쓴다
 - 버전 컬럼은 런타임 고정이 실제로 지켜졌는지 확인하는 용도다. 위 Colab 2단계 값과 다르면 그 행은 보고서에 쓰지 않는다
 
 ## 주간 리듬
