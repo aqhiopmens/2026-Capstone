@@ -1,0 +1,7 @@
+split,seed,transformed_overlap_patterns,transformed_test_hit_rows,test_rows
+random,0,1350,3455,13167
+pattern_group,0,0,0,13006
+random,1,1391,3517,13167
+pattern_group,1,1,1,13006
+random,2,1343,3478,13167
+pattern_group,2,1,1,13006

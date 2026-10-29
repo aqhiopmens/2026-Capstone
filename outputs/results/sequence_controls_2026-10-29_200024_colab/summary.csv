@@ -1,0 +1,7 @@
+track,experiment,split,feature_group,model,machine,sklearn,lightgbm,torch,macro_f1_mean,macro_f1_std,accuracy_mean,accuracy_std,runs
+A,hash_rule,random,sequence,hash_rule,colab-cpu,1.6.1,4.6.0,,0.762450252576083,0.002649035041792198,0.871598187387661,0.0009060798545947831,3
+A,sequence_shuffle,random,sequence_nonzero_shuffled,rf,colab-cpu,1.6.1,4.6.0,,0.7882035432144604,0.0021120690485689655,0.8925596820333662,0.002546599841258602,3
+A,sequence_shuffle,random,sequence_nonzero_shuffled,lgbm,colab-cpu,1.6.1,4.6.0,,0.8695869452479309,0.0020356476331255214,0.9320523531049846,0.000790486063441243,3
+A,hash_rule,pattern_group,sequence,hash_rule,colab-cpu,1.6.1,4.6.0,,0.0528200467612766,0.0,0.5228356143318469,0.0,3
+A,sequence_shuffle,pattern_group,sequence_nonzero_shuffled,rf,colab-cpu,1.6.1,4.6.0,,0.7871100684960618,0.04087510271459223,0.8780306525193501,0.040993513688310466,3
+A,sequence_shuffle,pattern_group,sequence_nonzero_shuffled,lgbm,colab-cpu,1.6.1,4.6.0,,0.803166322419265,0.06194302740812187,0.8946383720334204,0.04076886689376784,3

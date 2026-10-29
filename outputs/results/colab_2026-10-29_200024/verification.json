@@ -1,0 +1,11 @@
+{
+  "verified": true,
+  "runs": 66,
+  "confusion_cells": 11154,
+  "summary_conditions": 22,
+  "feature_run_id": "feature_group_2026-10-29_200024_colab",
+  "control_run_id": "sequence_controls_2026-10-29_200024_colab",
+  "artifact_files": 212,
+  "upstream_commit": "133c802088d5e53707ff7784321bfa67705fd4be",
+  "runtime_snapshot_commit": "8a73b86a0956e2480281f30f6f4390c85982e56f"
+}
