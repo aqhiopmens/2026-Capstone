@@ -82,7 +82,7 @@ class InputTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "fit failed"):
                     run_batch(run_id="interrupted")
                 report = repo / "outputs/results/interrupted"
-                manifest = json.loads((report / "manifest.json").read_text())
+                manifest = json.loads((report / "manifest.json").read_text(encoding="utf-8"))
                 self.assertFalse(manifest["complete"])
                 self.assertEqual(manifest["completed_runs"], 0)
                 self.assertFalse((report / "summary.csv").exists())
