@@ -1,0 +1,7 @@
+split,seed,fold,train_rows,test_rows,overlap_patterns
+random,0,,52667,13167,1347
+random,1,,52667,13167,1366
+random,2,,52667,13167,1357
+pattern_group,0,4.0,52828,13006,0
+pattern_group,1,4.0,52828,13006,0
+pattern_group,2,4.0,52828,13006,0

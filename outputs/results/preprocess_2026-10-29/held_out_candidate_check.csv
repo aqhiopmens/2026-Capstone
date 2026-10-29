@@ -1,0 +1,16 @@
+seed,fold,label,train_rows,test_rows
+0,3,Tiggre_None_TLS_CC,2006,1261
+0,3,Totbrick_None_TLS_CC,2086,643
+0,3,TrickBotCC_None_TLS_CC,2527,459
+0,3,arachni_arachni_TLS_scan,1518,379
+0,3,nessus_nessus_TLS_scan,1653,345
+1,3,Tiggre_None_TLS_CC,2006,1261
+1,3,Totbrick_None_TLS_CC,2086,643
+1,3,TrickBotCC_None_TLS_CC,2527,459
+1,3,arachni_arachni_TLS_scan,1518,379
+1,3,nessus_nessus_TLS_scan,1653,345
+2,3,Tiggre_None_TLS_CC,2006,1261
+2,3,Totbrick_None_TLS_CC,2086,643
+2,3,TrickBotCC_None_TLS_CC,2527,459
+2,3,arachni_arachni_TLS_scan,1518,379
+2,3,nessus_nessus_TLS_scan,1653,345
