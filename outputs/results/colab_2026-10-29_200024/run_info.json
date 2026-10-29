@@ -1,0 +1,19 @@
+{
+  "upstream_commit": "133c802088d5e53707ff7784321bfa67705fd4be",
+  "runtime_snapshot_commit": "8a73b86a0956e2480281f30f6f4390c85982e56f",
+  "machine": "colab-cpu",
+  "versions": [
+    "3.12.13",
+    "2.0.2",
+    "2.2.2",
+    "1.6.1",
+    "4.6.0",
+    "2.11.0"
+  ],
+  "colab_release": "release-colab-external-images_20260715-060047_RC00",
+  "code_zip_sha256": "8b348e750d286ae63e92c3b1b042c9e96f499ba1cd24381c9c73969cbf29ec5e",
+  "feature_run_id": "feature_group_2026-10-29_200024_colab",
+  "control_run_id": "sequence_controls_2026-10-29_200024_colab",
+  "complete": true,
+  "last_checkpoint_count": 28
+}

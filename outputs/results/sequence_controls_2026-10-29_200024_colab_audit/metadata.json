@@ -1,0 +1,16 @@
+{
+  "source_run_id": "sequence_controls_2026-10-29_200024_colab",
+  "machine": "colab-cpu",
+  "source_sha256": {
+    "features.csv": "9cda6109399edf8d168a0958310862762243c1bf4d81549754f20d3022fa45e6",
+    "rows.csv": "146e99b0838013d7d32f72eab90b7f9e698cd56a4b877f6fa940c1eabca9c16d",
+    "splits.csv": "2d79d8113c8a2b6900faba7aedf29dfa4be07d156a686dc630c7355a43502cb5",
+    "confusion": "1b0020800c6ba6beecc3b99532cb659332b0f5fb7513d1cdd207a5a7fbbb7b26",
+    "original_confusion": "13dc1a625e0cb844b3d1df7b1b88fcc4c9a521d4ce11d49487315971917051a5",
+    "manifest": "aa34cc761800440531648ebc9449067871ad93db9fb949fbfc8bfdaf06cbeb20",
+    "original_manifest": "0efabacb459f71fca3ebb97a8ebdc2eadc541459de87e58f239bd3af115adb3b"
+  },
+  "audit_code_sha256": "a295b13bdc61d1a777b1b13acd545b8a4ac27ce94d06785dde0956ed055c766e",
+  "model_training": false,
+  "complete": true
+}

@@ -1,0 +1,2 @@
+date,track,experiment,split,feature_group,model,seed,split_seed,machine,sklearn,lightgbm,torch,note,macro_f1,accuracy,n_features,train_rows,validation_rows,test_rows,unknown_rows,train_seconds
+2026-10-29,A,sequence_shuffle,pattern_group,sequence_nonzero_shuffled,rf,1,1,colab-cpu,1.6.1,4.6.0,,Colab CPU; 버전·교차 검증 후 보고서 사용,0.7402697980285916,0.8307704136552361,30,52828,0,13006,12877,13.57094842000015

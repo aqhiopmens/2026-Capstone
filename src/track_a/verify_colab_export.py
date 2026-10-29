@@ -33,6 +33,7 @@ def verify_export(archive_path, info_path, snapshot_path, source_root=None):
     feature, control = info["feature_run_id"], info["control_run_id"]
     allowed_prefixes = (f"outputs/results/{feature}", f"outputs/results/{control}")
     with zipfile.ZipFile(archive_path) as archive:
+        check(archive.testzip() is None, "ZIP 파일 CRC 오류")
         names = archive.namelist()
         check(len(names) == len(set(names)), "ZIP 내부 파일명 중복")
         check(len(names) == 212, "66회 집계·메타데이터·감사 파일 212개가 모두 필요합니다")
@@ -137,14 +138,52 @@ def verify_export(archive_path, info_path, snapshot_path, source_root=None):
                 check(np.isclose(before[score], getattr(row, score + "_original"), rtol=0, atol=1e-12), "원순서 점수 참조 오류")
                 check(np.isclose(getattr(row, score + "_shuffled") - before[score], getattr(row, "delta_" + score), rtol=0, atol=1e-12), "짝 차이 계산 오류")
         mac_hash = pd.read_csv(ROOT / "outputs/results/sequence_controls_2026-10-29_mac/metrics.csv")
+        coverage = read_csv(f"outputs/results/{control}/hash_coverage.csv")
+        check(len(coverage) == 78 and not coverage.duplicated(["split", "seed", "label"]).any(), "해시 클래스 조회율 건수 오류")
+        mac_coverage = pd.read_csv(ROOT / "outputs/results/sequence_controls_2026-10-29_mac/hash_coverage.csv", keep_default_na=False)
+        pd.testing.assert_frame_equal(coverage, mac_coverage, check_exact=True)
         for row in tables[control].loc[tables[control].model.eq("hash_rule")].itertuples(index=False):
             before = mac_hash.loc[mac_hash.split.eq(row.split) & mac_hash.seed.eq(row.seed) & mac_hash.model.eq("hash_rule")].iloc[0]
             check(np.isclose(before.macro_f1, row.macro_f1, rtol=0, atol=1e-12)
                   and np.isclose(before.accuracy, row.accuracy, rtol=0, atol=1e-12), "맥·Colab 해시 기준선 불일치")
+            selected = coverage.loc[coverage.split.eq(row.split) & coverage.seed.eq(row.seed)]
+            check(selected.hit_rows.sum() == float(row.lookup_hit_rows)
+                  and np.isclose(selected.hit_rows.sum() / selected.test_rows.sum(), float(row.lookup_coverage), atol=1e-12, rtol=0),
+                  "클래스별·전체 해시 조회율 불일치")
         for filename in ("post_shuffle_overlap.csv", "bag_coverage.csv"):
             current = read_csv(f"outputs/results/{control}_audit/{filename}")
             old = pd.read_csv(ROOT / "outputs/results/sequence_controls_2026-10-29_mac_audit" / filename, keep_default_na=False)
             pd.testing.assert_frame_equal(current, old, check_exact=True)
+        audited = read_csv(f"outputs/results/{control}_audit/paired_class_scores.csv")
+        check(len(audited) == 156 and not audited.duplicated(["split", "seed", "model", "label"]).any(),
+              "클래스별 짝 비교 건수 오류")
+        for row in audited.itertuples(index=False):
+            values = {}
+            for kind, run_id in (("original", feature), ("shuffled", control)):
+                cm = read_csv(f"outputs/results/{run_id}/confusion.csv")
+                part = cm.loc[cm.split.eq(row.split) & cm.seed.eq(row.seed) & cm.model.eq(row.model)]
+                if kind == "original": part = part.loc[part.feature_group.eq("sequence")]
+                matrix = part.pivot(index="actual", columns="predicted", values="count")
+                tp = matrix.loc[row.label, row.label]
+                support = matrix.loc[row.label].sum()
+                f1 = 2 * tp / (support + matrix[row.label].sum())
+                recall = tp / support
+                check(support == row.test_rows and np.isclose(f1, getattr(row, kind + "_f1"), atol=1e-12, rtol=0)
+                      and np.isclose(recall, getattr(row, kind + "_recall"), atol=1e-12, rtol=0), "클래스별 점수 재계산 불일치")
+                values[kind] = f1
+            check(np.isclose(values["shuffled"] - values["original"], row.delta_f1, atol=1e-12, rtol=0), "클래스별 차이 오류")
+        audit_meta = read_json(f"outputs/results/{control}_audit/metadata.json")
+        check(audit_meta["complete"] and not audit_meta["model_training"] and audit_meta["machine"] == "colab-cpu",
+              "추가 감사 메타데이터 오류")
+        audit_paths = {"confusion": f"outputs/results/{control}/confusion.csv",
+                       "original_confusion": f"outputs/results/{feature}/confusion.csv",
+                       "manifest": f"outputs/results/{control}/manifest.json",
+                       "original_manifest": f"outputs/results/{feature}/manifest.json"}
+        for name, expected in audit_meta["source_sha256"].items():
+            check((original_hashes[name] if name in original_hashes else digest(audit_paths[name])) == expected,
+                  "추가 감사 입력 해시 불일치")
+        check(hashlib.sha256((source_root / "src/track_a/audit_sequence_controls.py").read_bytes()).hexdigest()
+              == audit_meta["audit_code_sha256"], "추가 감사 코드 불일치")
     return dict(verified=True, runs=66, confusion_cells=11154, summary_conditions=22,
                 feature_run_id=feature, control_run_id=control, artifact_files=len(names),
                 upstream_commit=info["upstream_commit"], runtime_snapshot_commit=info["runtime_snapshot_commit"])
