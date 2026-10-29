@@ -80,17 +80,17 @@ class MetadataArchiveTests(unittest.TestCase):
 
     def test_tampered_metadata_is_rejected(self):
         path = compact_batch(self.folder)
-        archive = json.loads(path.read_text())
+        archive = json.loads(path.read_text(encoding="utf-8"))
         archive["runs"]["batch_rf_s0"]["metadata"]["params"]["workers"] = 99
-        path.write_text(json.dumps(archive))
+        path.write_text(json.dumps(archive), encoding="utf-8")
         with self.assertRaises(ValueError):
             read_archive(self.folder)
 
     def test_path_traversal_and_incomplete_batch_are_rejected(self):
         path = self.folder / "manifest.json"
-        original = json.loads(path.read_text())
+        original = json.loads(path.read_text(encoding="utf-8"))
         for update in ({"run_ids": ["../outside", "batch_rf_s1"]}, {"complete": False}):
-            path.write_text(json.dumps({**original, **update}))
+            path.write_text(json.dumps({**original, **update}), encoding="utf-8")
             with self.assertRaises(ValueError):
                 compact_batch(self.folder)
 
