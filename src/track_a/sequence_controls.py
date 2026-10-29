@@ -19,6 +19,7 @@ from src.common.results import save_run, sha256_file, summarize_runs
 from src.common.splits import validate_partitions
 from src.track_a.feature_group_experiment import ROOT, code_hashes as baseline_code_hashes, load_inputs
 from src.track_a.preprocess import feature_groups
+from src.track_a.result_metadata import read_archive
 
 
 def shuffle_packets(sequence, seed):
@@ -95,10 +96,16 @@ def load_baseline(run_id, *, machine, hashes, workers):
     expected = {(s, i, m) for s in ("random", "pattern_group") for i in (0, 1, 2) for m in ("rf", "lgbm")}
     if len(selected) != 12 or set(map(tuple, selected[keys].to_numpy())) != expected:
         raise ValueError("원순서 기준선 12개 조건이 중복·누락되었습니다")
+    archived = read_archive(folder)
+    if archived is not None:
+        paths["baseline_metadata_archive"] = folder / "run_metadata.json"
     for row in selected.itertuples(index=False):
         path = folder.parent / f"{run_id}_{row.split}_{row.model}_sequence_s{row.seed}" / "metadata.json"
-        paths[f"baseline_{row.split}_{row.model}_{row.seed}"] = path
-        meta = json.loads(path.read_text(encoding="utf-8"))
+        if archived is None:
+            paths[f"baseline_{row.split}_{row.model}_{row.seed}"] = path
+            meta = json.loads(path.read_text(encoding="utf-8"))
+        else:
+            meta = archived[path.parent.name]
         if (meta["model_params"] != make_model(row.model, seed=row.seed, workers=workers).get_params()
                 or row.sklearn != version("scikit-learn") or row.lightgbm != version("lightgbm")
                 or meta["numpy"] != version("numpy") or meta["pandas"] != version("pandas")
@@ -127,7 +134,8 @@ def run_controls(*, run_id, baseline_run_id, preprocess_run_id="2026-10-29", wor
     paths.update(baseline_paths)
     input_hashes = {name: sha256_file(path) for name, path in paths.items()}
     code_paths = {**{name: ROOT / name for name in baseline_code_hashes()},
-                  "src/track_a/sequence_controls.py": Path(__file__)}
+                  "src/track_a/sequence_controls.py": Path(__file__),
+                  "src/track_a/result_metadata.py": Path(__file__).with_name("result_metadata.py")}
     code_hashes = {name: sha256_file(path) for name, path in code_paths.items()}
     manifest = dict(run_id=run_id, baseline_run_id=baseline_run_id, machine=MACHINE,
         preliminary=MACHINE != "colab-cpu", complete=False, completed_runs=0, expected_runs=18,

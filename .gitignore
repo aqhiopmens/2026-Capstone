@@ -23,3 +23,9 @@ __pycache__/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# 완료 배치의 집계·run_metadata.json만 공유 (개별 실행은 로컬 보존)
+outputs/results/feature_group_*_random_*_s[012]/
+outputs/results/feature_group_*_pattern_group_*_s[012]/
+outputs/results/sequence_controls_*_random_*_s[012]/
+outputs/results/sequence_controls_*_pattern_group_*_s[012]/

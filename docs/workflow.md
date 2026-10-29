@@ -215,3 +215,17 @@ Slack 채널 `#2026-capstone-전체` 하나로 소통한다. 두 사람과 각�
 | 11/20 | 발표자료·결과보고서 제출 |
 | 11/23~26 | 연구실 평가 (교수님별 1팀 추천) |
 | 12/1 | 발표회 (추천 시 라이브 시연) |
+
+## 완료 배치의 중복 결과 정리 (10/29)
+
+특징군 비교·시퀀스 대조가 모두 끝나고 집계 검증을 통과한 뒤에만 실행한다.
+
+```bash
+python -m src.track_a.result_metadata --run-id <특징군-배치-ID> <시퀀스-배치-ID> --untrack
+```
+
+- 완료 manifest의 개별 실행 목록과 집계 CSV를 대조한다. 개별 점수·혼동 행렬이 집계와 다르면 중단한다
+- 배치 `run_metadata.json`에 모든 개별 메타데이터(모델 설정·패키지 버전·입력/코드 SHA·Git 기록)를 보존한다. 원래 metadata.json 바이트를 LF/CRLF 또는 원문으로 복원하고 SHA-256을 확인할 수 있다. manifest·metrics·confusion 원본 해시도 묶는다
+- 그 뒤 개별 실행의 metrics.csv·confusion.csv·metadata.json만 `git rm --cached`로 추적 해제한다. 로컬 파일과 DATA_DIR의 행별 예측·배정은 보존한다. 배치 집계·summary·paired·감사·provenance는 그대로 공유한다
+- 시퀀스 대조 기준선 로더는 아카이브가 있으면 이를 우선 검증하며, 없을 때 기존 개별 metadata.json을 읽는다. 새 체크아웃에서도 같은 기준선 12조건을 읽을 수 있다
+- 과거 Colab ZIP은 원본 212파일 형태 그대로 Drive에 보존한다. 역사적 실행을 검증할 때 `verify_colab_export --source-root <해당 SOURCE_SNAPSHOT의 원본 소스 폴더>`를 사용한다. 현재 코드로 과거 실행 코드를 대체하지 않는다
