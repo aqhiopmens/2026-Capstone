@@ -1,0 +1,2 @@
+date,track,experiment,split,feature_group,model,seed,split_seed,machine,sklearn,lightgbm,torch,note,macro_f1,accuracy,n_features,train_rows,validation_rows,test_rows,unknown_rows,train_seconds,lookup_hit_rows,lookup_coverage,lookup_hit_accuracy
+2026-10-29,A,hash_rule,random,sequence,hash_rule,2,2,eunbin-mac,1.6.1,4.6.0,,맥/로컬 예비; 최종 수치는 Colab CPU 재실행,0.7649267488555176,0.8711931343510291,30,52667,0,13167,12877,0.029659666994120926,9221,0.7003113845219109,0.9444745689187724

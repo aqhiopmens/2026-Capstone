@@ -1,0 +1,16 @@
+{
+  "source_run_id": "sequence_controls_2026-10-29_mac",
+  "machine": "eunbin-mac",
+  "source_sha256": {
+    "features.csv": "9cda6109399edf8d168a0958310862762243c1bf4d81549754f20d3022fa45e6",
+    "rows.csv": "146e99b0838013d7d32f72eab90b7f9e698cd56a4b877f6fa940c1eabca9c16d",
+    "splits.csv": "2d79d8113c8a2b6900faba7aedf29dfa4be07d156a686dc630c7355a43502cb5",
+    "confusion": "e9523e6efe8b0a5fc6956adb46b49f6c950508e93034230d12ede040e05ae91b",
+    "original_confusion": "bd219d37600854963847064db510f573b8ffad9f0a9f3f205ae413b571f63c24",
+    "manifest": "13d5ccb86b2bb1a4ef0a7765663be33bbfae6c2f148f4d8d00b5ce3c92f4aa52",
+    "original_manifest": "7c0ab4fb83943783970eb6533232b040b084e3e2d2916ffde17e32751fc0b36d"
+  },
+  "audit_code_sha256": "a295b13bdc61d1a777b1b13acd545b8a4ac27ce94d06785dde0956ed055c766e",
+  "model_training": false,
+  "complete": true
+}
