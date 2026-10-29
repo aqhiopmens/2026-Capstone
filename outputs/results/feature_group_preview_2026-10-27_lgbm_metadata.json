@@ -1,0 +1,40 @@
+{
+  "source": "processed/malicious_tls_cleaned.csv",
+  "source_sha256": "3495ffc700e852a506b10fb5f1f2ad75645ad61e66645fe75ffccbce599c0e5f",
+  "source_rows": 90925,
+  "used_rows": 64850,
+  "labels": [
+    "BuerLoader_None_TLS_CC",
+    "Caphaw.AH_None_TLS_CC",
+    "Caphaw.A_None_TLS_CC",
+    "CobaltStrike_None_TLS_CC",
+    "DridexCC_None_TLS_CC",
+    "Dynamer!ac_None_TLS_CC",
+    "Panda.BZA!tr_None_TLS_CC",
+    "PandaZeuSCC_None_TLS_CC",
+    "Qakbot_None_TLS_CC",
+    "Tor_None_TLS_CC",
+    "Upatre_None_TLS_CC",
+    "benign",
+    "burpsuite_burpsuite_TLS_scan"
+  ],
+  "excluded": [
+    "Banker_None_TLS_CC",
+    "Drixed_None_TLS_CC",
+    "Shifu.A_None_TLS_CC",
+    "Vawtrak.C_None_TLS_CC",
+    "golistmero_golistmero_TLS_scan"
+  ],
+  "held_out_candidates": [
+    "Tiggre_None_TLS_CC",
+    "Totbrick_None_TLS_CC",
+    "TrickBotCC_None_TLS_CC",
+    "arachni_arachni_TLS_scan",
+    "nessus_nessus_TLS_scan"
+  ],
+  "seed_changes_split_and_model": true,
+  "group_split": "Seed-permuted group IDs; StratifiedGroupKFold(5, shuffle=False); among folds with >=30 train/test rows per class, choose closest overall test fraction to 20%, tie: fold index; no model scores used",
+  "std": "sample standard deviation (ddof=1)",
+  "rf_workers": 4,
+  "note": "캡디1 정제본, 재전처리 전, 예비; 18종 중 5종 보류, 알려진 13종; 전처리 누수 잔존"
+}
