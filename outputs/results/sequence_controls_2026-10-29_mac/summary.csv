@@ -1,0 +1,7 @@
+track,experiment,split,feature_group,model,machine,sklearn,lightgbm,torch,macro_f1_mean,macro_f1_std,accuracy_mean,accuracy_std,runs
+A,hash_rule,random,sequence,hash_rule,eunbin-mac,1.6.1,4.6.0,,0.762450252576083,0.002649035041792198,0.871598187387661,0.0009060798545947831,3
+A,sequence_shuffle,random,sequence_nonzero_shuffled,rf,eunbin-mac,1.6.1,4.6.0,,0.7860210045797066,0.00567179956269791,0.8916989443305233,0.0032815975849423587,3
+A,sequence_shuffle,random,sequence_nonzero_shuffled,lgbm,eunbin-mac,1.6.1,4.6.0,,0.8695869452479309,0.0020356476331255214,0.9320523531049846,0.000790486063441243,3
+A,hash_rule,pattern_group,sequence,hash_rule,eunbin-mac,1.6.1,4.6.0,,0.0528200467612766,0.0,0.5228356143318469,0.0,3
+A,sequence_shuffle,pattern_group,sequence_nonzero_shuffled,rf,eunbin-mac,1.6.1,4.6.0,,0.7839799030455082,0.04305746494227874,0.8771592598287969,0.04132308026903213,3
+A,sequence_shuffle,pattern_group,sequence_nonzero_shuffled,lgbm,eunbin-mac,1.6.1,4.6.0,,0.803166322419265,0.06194302740812187,0.8946383720334204,0.04076886689376784,3
