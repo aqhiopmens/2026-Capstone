@@ -41,7 +41,7 @@
 - PR #2·#8·#9·#10은 10/29 서은빈 승인 후 병합 완료. PR #2 재작성 이력에서 .hwp 제거를 확인했고 `~/.zshrc`에 `MACHINE=eunbin-mac`을 추가해 새 터미널 값 확인 완료
 - 재전처리 PR #11·공통 코드 PR #12는 병합 완료. 원본 기준 특징군 비교 PR #13은 맥 48회·Claude 교차 검토 완료, 서은빈이 테스트·문서 보완과 병합을 승인했다. Windows 수정 후 테스트와 RF 교차 환경 차이 상세 로그 확인은 남아 있다. Colab 최종 수치는 별도 재실행한다(제안 목표 11/7). 착수·병합은 각각 서은빈 승인 후
 - 트랙 B는 추출기 코드가 아직 저장소에 없다 (김강민)
-- 시퀀스 대조 구현·결과는 `a/sequence-controls`에 푸시 완료(실행 `a8bd3be`, 결과 `d5364c6`). 이후 GitHub API의 connection reset 및 Slack 연결 도구의 전송 오류로 **PR 생성 여부·Slack 결과 보고 완료는 확인하지 못했다**. 네트워크 복구 후 같은 브랜치 PR의 존재부터 확인해 중복 생성을 피하고 결과 보고·교차 검토를 이어 간다. 병합 승인·Colab 실행은 아직 없다
+- 시퀀스 대조 구현·결과는 `a/sequence-controls`에 푸시 완료(실행 `a8bd3be`, 결과 `d5364c6`). 일시적인 GitHub·Slack 연결 장애 후 복구를 확인했고, 기존 PR이 없음을 조회한 뒤 [PR #14](https://github.com/aqhiopmens/2026-Capstone/pull/14)를 생성했다. [Slack 결과 보고·검토 요청](https://the2026-capstone.slack.com/archives/C0CCD9LQPBQ/p1793268733019449)도 완료했다. Claude 교차 검토 대기이며 병합 승인·Colab 실행은 아직 없다
 
 ## 서은빈이 할 일 (트랙 A) — 순서대로
 
