@@ -68,4 +68,6 @@ Claude 교차 검토에서도 코드 20개 SHA 일치·고정 환경·특징군 
 
 집계 원본은 `outputs/results/feature_group_2026-10-29_200024_colab/`과 `outputs/results/sequence_controls_2026-10-29_200024_colab/`, 추가 감사는 후자의 `_audit/`에 있다. `outputs/results/colab_2026-10-29_200024/`에는 실제 run_info·source_snapshot·verification·export SHA 기록을 보존했다.
 
-다음 정리 PR은 실행별 메타데이터를 배치에 통합 보존하고 기준선 로더를 맞춘 뒤 중복 추적을 해제하며, 새 체크아웃에서 로더가 동작하는지 검증한다.
+별도 정리 브랜치에서 맥·Colab 132개 개별 실행의 메타데이터를 배치별 `run_metadata.json` 4개로 보존했다. 중복 점수·혼동 행렬을 집계와 대조한 뒤 개별 파일 396개의 Git 추적만 해제한다. 원본 배치·감사·provenance 및 Drive ZIP은 그대로 보존한다. 절차와 과거 ZIP 검증 방법은 [workflow.md](workflow.md#완료-배치의-중복-결과-정리-1029)에 기록했다.
+
+정리 검증: 테스트 39개 통과. 보존 메타데이터 132개는 정리 전 Git 원본과 바이트 단위로 일치했다. 새 임시 체크아웃에 개별 폴더가 없음을 확인하고, 맥·Colab 기준선 각각 12조건과 4개 아카이브 전체를 읽었다. 집계·manifest·감사 파일은 변경하지 않았다.
