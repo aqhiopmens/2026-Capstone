@@ -115,6 +115,8 @@
 
 ## 실험 결과 기록
 
+공통 RF·LightGBM 실행·평가·저장 API와 사용 예시는 [common_experiments.md](common_experiments.md)에 있다. 모델 시드는 `seed`, 분할 시드는 `split_seed`로 구분하고 최종 행 배정·행별 예측은 `DATA_DIR`에만 저장한다.
+
 모든 실험은 `outputs/results/`에 같은 형식의 CSV로 남긴다.
 
 | 컬럼 | 예시 |
