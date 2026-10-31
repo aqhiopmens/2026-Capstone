@@ -1,0 +1,17 @@
+pcap,label,k,rows,reached_k_rows,short_rows,short_fraction,padding_policy
+Monday_2021-04-12_0611.pcap,benign,5,1950,1414,536,0.274872,trailing_zero_30
+Monday_2021-04-12_0611.pcap,benign,10,1950,1265,685,0.351282,trailing_zero_30
+Monday_2021-04-12_0611.pcap,benign,20,1950,725,1225,0.628205,trailing_zero_30
+Monday_2021-04-12_0611.pcap,benign,30,1950,531,1419,0.727692,trailing_zero_30
+Monday_2021-04-12_0611.pcap,bruteforce_xml,5,1216,1216,0,0.0,trailing_zero_30
+Monday_2021-04-12_0611.pcap,bruteforce_xml,10,1216,1216,0,0.0,trailing_zero_30
+Monday_2021-04-12_0611.pcap,bruteforce_xml,20,1216,0,1216,1.0,trailing_zero_30
+Monday_2021-04-12_0611.pcap,bruteforce_xml,30,1216,0,1216,1.0,trailing_zero_30
+Saturday_2021-04-17_0357.pcap,benign,5,4492,3379,1113,0.247774,trailing_zero_30
+Saturday_2021-04-17_0357.pcap,benign,10,4492,3077,1415,0.315004,trailing_zero_30
+Saturday_2021-04-17_0357.pcap,benign,20,4492,1605,2887,0.642698,trailing_zero_30
+Saturday_2021-04-17_0357.pcap,benign,30,4492,1127,3365,0.74911,trailing_zero_30
+Saturday_2021-04-17_0357.pcap,bruteforce_xml,5,3925,3925,0,0.0,trailing_zero_30
+Saturday_2021-04-17_0357.pcap,bruteforce_xml,10,3925,3925,0,0.0,trailing_zero_30
+Saturday_2021-04-17_0357.pcap,bruteforce_xml,20,3925,0,3925,1.0,trailing_zero_30
+Saturday_2021-04-17_0357.pcap,bruteforce_xml,30,3925,0,3925,1.0,trailing_zero_30
