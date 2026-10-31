@@ -29,3 +29,10 @@ outputs/results/feature_group_*_random_*_s[012]/
 outputs/results/feature_group_*_pattern_group_*_s[012]/
 outputs/results/sequence_controls_*_random_*_s[012]/
 outputs/results/sequence_controls_*_pattern_group_*_s[012]/
+
+# 앞 k개 평가: 배치 집계·아카이브만 공유
+outputs/results/sequence_prefix_*_random_*_s[012]/
+outputs/results/sequence_prefix_*_pattern_group_*_s[012]/
+
+# 행 ID 복원 오류로 학습 전 중단된 0/36 실행 기록은 로컬 보존
+outputs/results/sequence_prefix_2026-10-31_mac/
