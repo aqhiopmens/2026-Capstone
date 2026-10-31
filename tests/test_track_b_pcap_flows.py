@@ -88,6 +88,64 @@ class AssemblyTests(unittest.TestCase):
         ]
         self.assertEqual(run(packets)[0][0].seq, [10, 20])
 
+    def test_out_of_order_late_segment_is_new_data_not_retransmission(self):
+        # (2,100) -> (202,100) -> (102,100): 세 구간이 겹치지 않으므로 3개여야 한다 (Codex P1 재현)
+        packets = handshake(10.0) + [
+            (10.1, frame(CLIENT, 40000, SERVER, 443, seq=2, payload=100)),
+            (10.2, frame(CLIENT, 40000, SERVER, 443, seq=202, payload=100)),
+            (10.3, frame(CLIENT, 40000, SERVER, 443, seq=102, payload=100)),
+        ]
+        flow = run(packets)[0][0]
+        self.assertEqual((flow.seq, flow.payload_packets, flow.retransmissions), ([100, 100, 100], 3, 0))
+
+    def test_exact_duplicate_after_gap_fill_and_covered_subrange_are_retransmissions(self):
+        packets = handshake(10.0) + [
+            (10.1, frame(CLIENT, 40000, SERVER, 443, seq=2, payload=100)),
+            (10.2, frame(CLIENT, 40000, SERVER, 443, seq=202, payload=100)),
+            (10.3, frame(CLIENT, 40000, SERVER, 443, seq=102, payload=100)),
+            (10.4, frame(CLIENT, 40000, SERVER, 443, seq=102, payload=100)),  # 완전 중복
+            (10.5, frame(CLIENT, 40000, SERVER, 443, seq=50, payload=100)),   # 이미 받은 구간 안
+        ]
+        flow = run(packets)[0][0]
+        self.assertEqual((flow.payload_packets, flow.retransmissions), (3, 2))
+
+    def test_partial_overlap_with_new_bytes_is_counted(self):
+        packets = handshake(10.0) + [
+            (10.1, frame(CLIENT, 40000, SERVER, 443, seq=2, payload=100)),
+            (10.2, frame(CLIENT, 40000, SERVER, 443, seq=52, payload=100)),  # 52~152, 새 바이트 있음
+        ]
+        flow = run(packets)[0][0]
+        self.assertEqual((flow.payload_packets, flow.retransmissions), (2, 0))
+
+    def test_out_of_order_across_seq_wraparound(self):
+        packets = handshake(10.0) + [
+            (10.1, frame(CLIENT, 40000, SERVER, 443, seq=0xFFFFFFF0, payload=10)),
+            (10.2, frame(CLIENT, 40000, SERVER, 443, seq=0x00000004, payload=10)),   # 순환 뒤 구간이 먼저
+            (10.3, frame(CLIENT, 40000, SERVER, 443, seq=0xFFFFFFFA, payload=10)),   # 사이 구간이 늦게
+            (10.4, frame(CLIENT, 40000, SERVER, 443, seq=0xFFFFFFFA, payload=10)),   # 완전 중복
+        ]
+        flow = run(packets)[0][0]
+        self.assertEqual((flow.payload_packets, flow.retransmissions), (3, 1))
+
+    def test_directions_are_tracked_independently(self):
+        packets = handshake(10.0) + [
+            (10.1, frame(CLIENT, 40000, SERVER, 443, seq=2, payload=100)),
+            (10.2, frame(SERVER, 443, CLIENT, 40000, seq=2, payload=100)),  # 같은 번호라도 반대 방향
+        ]
+        self.assertEqual(run(packets)[0][0].seq, [100, -100])
+
+    def test_corrupt_tcp_data_offset_and_ip_version_are_skipped_and_counted(self):
+        good = frame(CLIENT, 40000, SERVER, 443, seq=2, payload=100)
+        bad_offset = bytearray(good)
+        bad_offset[14 + 20 + 12] = 0          # TCP data offset 0
+        bad_version = bytearray(good)
+        bad_version[14] = 0x65                # IP 버전 6, 헤더 길이 20
+        packets = handshake(10.0) + [(10.1, bytes(bad_offset)), (10.2, bytes(bad_version)), (10.3, good)]
+        flows, skipped, _ = run(packets)
+        self.assertEqual(flows[0].seq, [100])
+        self.assertEqual(skipped.get("bad_tcp_offset"), 1)
+        self.assertEqual(skipped.get("bad_ip_version"), 1)
+
     def test_syn_after_close_starts_new_flow_and_idle_timeout_splits(self):
         packets = (handshake(10.0) + [(10.1, frame(CLIENT, 40000, SERVER, 443, seq=2, payload=10)),
                                       (10.2, frame(CLIENT, 40000, SERVER, 443, flags=0x11, seq=12))]
