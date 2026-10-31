@@ -1,0 +1,55 @@
+{
+  "run_id": "2026-10-31_v3",
+  "flows_run_id": "2026-10-31_v3",
+  "flows_sha256": "56984701746445874599587ddc8f560ba016c576ca1f1e2592680b25ff314aa1",
+  "flows_sha256_in_extract_metadata": "56984701746445874599587ddc8f560ba016c576ca1f1e2592680b25ff314aa1",
+  "predictions_sha256": "54dcaf1cbd33778e386d6e198dfefe4233fec24c7774d84b66bc9543b5ec61e2",
+  "code_sha256": {
+    "src/track_b/early_eval.py": "7e173bdecede198211cc88b3cfcaeb3d3785add47dabb52be85a886d2b1b650e",
+    "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5",
+    "src/common/experiment.py": "0820bc4888b4ebf70b6ae840257da7547237ae8bc4166ee834bfde5ada107bf1",
+    "src/common/models.py": "5aaa4ea1c4b29e4f59db08e1c21935f565e7de2fd82e9e4471d5f8e337287598"
+  },
+  "git_commit": "890da41cc04f9a475e66c6e72de6e507485e0bf7",
+  "git_dirty_src_tests": false,
+  "versions": {
+    "sklearn": "1.6.1",
+    "lightgbm": "4.6.0",
+    "numpy": "2.0.2",
+    "pandas": "2.2.2"
+  },
+  "ks": [
+    5,
+    10
+  ],
+  "models": [
+    "rf",
+    "lgbm"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "directions": [
+    [
+      "2021-04-12",
+      "2021-04-17"
+    ],
+    [
+      "2021-04-17",
+      "2021-04-12"
+    ]
+  ],
+  "feature_kinds": [
+    "seq",
+    "counts"
+  ],
+  "labels": [
+    "benign",
+    "bruteforce_xml"
+  ],
+  "padding_policy": "trailing_zero_30",
+  "runs": 48,
+  "note": "시드는 모델 시드만 바꾼다. counts는 패킷 수·길이 요약 4개를 쓰는 기준선. 오프라인 분류 성능이며 실시간 지연·운영 오탐의 근거가 아니다. 공격 플로우가 모두 12개 이하라 k=20·30은 평가하지 않는다"
+}

@@ -1,0 +1,13 @@
+kind,k,direction,name,attack_rows,benign_rows,attack_distinct,benign_distinct,shared,accuracy
+prefix_diversity,5,all,prefix,5141.0,6442.0,6.0,2754.0,0.0,
+prefix_diversity,10,all,prefix,5141.0,6442.0,64.0,4284.0,0.0,
+majority,0,0412to0417,benign,,,,,,0.5336818343827967
+single_feature,5,0412to0417,seq_0,,,,,,0.9985743138885589
+single_feature,5,0412to0417,n_seen,,,,,,0.5336818343827967
+single_feature,10,0412to0417,seq_0,,,,,,0.9985743138885589
+single_feature,10,0412to0417,n_seen,,,,,,0.5336818343827967
+majority,0,0417to0412,benign,,,,,,0.6159191408717625
+single_feature,5,0417to0412,seq_0,,,,,,0.9974731522425774
+single_feature,5,0417to0412,n_seen,,,,,,0.5533796588755527
+single_feature,10,0417to0412,seq_0,,,,,,0.9974731522425774
+single_feature,10,0417to0412,n_seen,,,,,,0.600442198357549
