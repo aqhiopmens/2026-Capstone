@@ -1,0 +1,17 @@
+track,experiment,split,feature_group,model,machine,sklearn,lightgbm,torch,macro_f1_mean,macro_f1_std,accuracy_mean,accuracy_std,runs
+B,early_k,time_0412to0417,seq_k5,rf,kyle-win,1.6.1,4.6.0,,0.9999204354353006,6.890493427070914e-05,0.999920795216031,6.859335501840463e-05,3
+B,early_k,time_0412to0417,seq_k5,lgbm,kyle-win,1.6.1,4.6.0,,0.9994033039394772,0.0,0.9994059641202329,0.0,3
+B,early_k,time_0412to0417,counts_k5,rf,kyle-win,1.6.1,4.6.0,,0.9994033039394772,0.0,0.9994059641202329,0.0,3
+B,early_k,time_0412to0417,counts_k5,lgbm,kyle-win,1.6.1,4.6.0,,0.9998806531529509,0.0,0.9998811928240464,0.0,3
+B,early_k,time_0412to0417,seq_k10,rf,kyle-win,1.6.1,4.6.0,,1.0,0.0,1.0,0.0,3
+B,early_k,time_0412to0417,seq_k10,lgbm,kyle-win,1.6.1,4.6.0,,0.9984484909883631,0.0,0.9984555067126054,0.0,3
+B,early_k,time_0412to0417,counts_k10,rf,kyle-win,1.6.1,4.6.0,,0.9998408785124363,0.0002756065010364529,0.999841590432062,0.0002743734200734583,3
+B,early_k,time_0412to0417,counts_k10,lgbm,kyle-win,1.6.1,4.6.0,,0.9991646520928876,0.0,0.999168349768326,0.0,3
+B,early_k,time_0417to0412,seq_k5,rf,kyle-win,1.6.1,4.6.0,,1.0,0.0,1.0,0.0,3
+B,early_k,time_0417to0412,seq_k5,lgbm,kyle-win,1.6.1,4.6.0,,1.0,0.0,1.0,0.0,3
+B,early_k,time_0417to0412,counts_k5,rf,kyle-win,1.6.1,4.6.0,,1.0,0.0,1.0,0.0,3
+B,early_k,time_0417to0412,counts_k5,lgbm,kyle-win,1.6.1,4.6.0,,1.0,0.0,1.0,0.0,3
+B,early_k,time_0417to0412,seq_k10,rf,kyle-win,1.6.1,4.6.0,,1.0,0.0,1.0,0.0,3
+B,early_k,time_0417to0412,seq_k10,lgbm,kyle-win,1.6.1,4.6.0,,1.0,0.0,1.0,0.0,3
+B,early_k,time_0417to0412,counts_k10,rf,kyle-win,1.6.1,4.6.0,,1.0,0.0,1.0,0.0,3
+B,early_k,time_0417to0412,counts_k10,lgbm,kyle-win,1.6.1,4.6.0,,1.0,0.0,1.0,0.0,3
