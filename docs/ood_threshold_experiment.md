@@ -9,7 +9,6 @@
 - 실행 ID `ood_threshold_2026-10-31_mac_v2`, `MACHINE=eunbin-mac`. 학습 소스 커밋 `07bfc0dd22fe18ef335533b8ad3015785dc505b4`, 시작 코드/테스트 dirty=false. 코드·입력 SHA는 manifest, 모델 설정과 실행별 원본 행 파일 SHA·크기/LF SHA는 run_metadata.json에 보존했다
 - Python3.12.15·numpy2.0.2·pandas2.2.2·sklearn1.6.1·LightGBM4.6.0 환경. RF만 학습했다. Colab 최종 환경은 별도로 CPU2026.07/Python3.12.13을 확인한다
 - 첫 ID `ood_threshold_2026-10-31_mac`은 첫 모델 학습 후 저장소 밖 DATA_DIR 쓰기 권한에 막혀 저장 전 중단했다. 완료 기록0/12·감사를 로컬 보존하고 권한을 확인한 새 v2에서12조건을 모두 실행했다. 실패 실행을 완료 결과에 합치지 않았고 기존 파일을 덮어쓰지 않았다
-- 처음 공유3쌍 이후 자동 승인 검토가 구체적 행별 자료/목적지 승인을 요구해 중단했다. 서은빈이 나머지18파일 업로드를 명시 승인한 뒤 공유를 완료했다
 
 ## 주 정책5% 결과
 
