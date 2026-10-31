@@ -47,3 +47,14 @@
 - 전역 EncodingWarning 오류 모드는 numpy 내부 subprocess의 인코딩 미지정에서 실패했다. 새 테스트·prefix 모듈 범위로 경고 오류를 한정한 검사는 통과했다. Windows 실제 검사는 상대 검토를 요청한다
 - Google Drive 연결 계정은 서은빈으로 확인했고 Colab 원본 sequence 12회 예측·배정 폴더를 확인했다. Colab 실행 묶음은 필요한 소스·검사·기준선 집계/메타데이터만 포함하도록 준비한다. 문서 제출본·원본 Git 이력·행별 데이터는 코드 묶음에 넣지 않는다
 - 다음은 Claude의 코드·부분 재현 교차 검토 후 같은 코드의 Colab CPU 2026.07에서 36회 최종 실행이다. 사용자 착수 승인은 받았으며 추가 모델·자동 재학습으로 범위를 늘리지 않는다. 구현·결과 PR 병합은 직전에 별도 승인받는다. 미확인 문턱 평가는 후속 별도 계획을 확인한 뒤 시작한다
+
+## Colab 준비 상태 (최종 실행 전)
+
+필요한 소스·검사·전처리 메타데이터·Colab 기준선 집계/아카이브 **32파일**만 추린 최소 묶음을 준비했다. 별도 최소 snapshot 저장소에서도 테스트 47개가 통과했다.
+
+- upstream: `38ac760f91661f14af7662ac0cb43f77cdfb3a25`
+- 최소 runtime snapshot: `77f6dacd3e1e95df4ebe83730e4a2510672d4fa9` (원래 Git 이력과 구분)
+- ZIP: 313,433바이트, SHA-256 `fc6566bda2e61f57cb3e976bf067b517d82b451974c501a4ea4426c7802dafcc`
+- [개인 Colab 런처](https://colab.research.google.com/drive/11cbU6cGQM6IdtjLDkm32t5uPgbtFGvAY). 서은빈 계정의 개인 Colab 폴더에 소스 ZIP·노트 2개만 올리고 파일명·MIME·크기를 재확인했다
+
+런처는 고정 버전·호스팅 Colab·CPU·snapshot/소스 SHA·입력 및 기준선 예측 24파일·테스트를 확인한 뒤 기존 `.py`를 호출한다. 중간 집계 ZIP을 보존하고 36회 및 저장 예측 검증이 모두 성공한 뒤에만 final ZIP과 complete=true를 기록한다. 현재는 **코드 교차 검토 대기이며 Colab 학습을 시작하지 않았다**. 최종 계정·런타임 상태는 실제 실행 직전에 다시 확인한다. 이 준비가 Colab 최종 수치를 의미하지 않는다.
