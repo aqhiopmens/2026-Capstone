@@ -8,7 +8,7 @@
 
 - 과제: 암호화된 악성 트래픽 조기 탐지 및 분류 시스템. 김강민(팀장)은 트랙 B, 서은빈은 트랙 A와 공통 코드(`src/common/`)를 맡는다
 - 설계 확정, 계획서 제출(9/29), 환경 구축, 캡디1 RF 재현 완료. 원본 기준 특징군 비교48회와 시퀀스 대조18회를 맥 예비 실행에 이어 **10/29 Colab CPU에서도 66회 완료**했다. 집계 검증·Claude 교차 검토·보완 완료, 서은빈이 #15·#16 병합을 승인했다. #15는 `62acd6c`, #16은 `5ae282f`로 main에 병합 완료. [Colab 결과·재현 기록](colab_final_runs.md)
-- 트랙 B: pcap 추출기([PR #20](https://github.com/aqhiopmens/2026-Capstone/pull/20))와 앞 k개(5·10) 시간 분할 평가([PR #22](https://github.com/aqhiopmens/2026-Capstone/pull/22)), 통제 실험([PR #25](https://github.com/aqhiopmens/2026-Capstone/pull/25), 첫 길이 가리기·순서 섞기·부호 제거 72회)을 10/31 병합했다. **HIKARI Bruteforce-XML은 분리가 쉬워(점수 ≥0.998) 조기 탐지 능력의 근거로 쓰지 않는다.** [추출기](track_b_extractor.md), [평가](track_b_early_eval.md), [통제 실험](track_b_early_controls.md)
+- 트랙 B: pcap 추출기([PR #20](https://github.com/aqhiopmens/2026-Capstone/pull/20))와 앞 k개(5·10) 시간 분할 평가([PR #22](https://github.com/aqhiopmens/2026-Capstone/pull/22)), 통제 실험([PR #25](https://github.com/aqhiopmens/2026-Capstone/pull/25), 첫 길이 가리기·순서 섞기·부호 제거 72회)을 10/31 병합했다. **HIKARI Bruteforce-XML은 분리가 쉬워(원본 k평가 최소 0.9984, 통제 시드평균 최소 0.9940) 조기 탐지 능력의 근거로 쓰지 않는다.** [추출기](track_b_extractor.md), [평가](track_b_early_eval.md), [통제 실험](track_b_early_controls.md)
 - 트랙 A [PR #21](https://github.com/aqhiopmens/2026-Capstone/pull/21)은 `9adb895`로 병합했다. 서은빈이 Colab CPU 2026.07 최종 36회를 직접 실행했고 저장 예측 검증·로컬 집계 대조까지 통과했다. [최종 실행 결과·출처](sequence_prefix_colab.md). LightGBM은 맥과 점수가 같고 RF 개별 실행별 F1 차이는 최대 0.002418이다. 결과 PR 교차 검토·병합은 대기다.
 - 10/28 중간보고 발표를 마쳤다(교수님 피드백은 아래). 가장 가까운 일정: 11/1~11/7 일반화 및 조기 탐지 검증, 11/20 결과보고서·발표자료 제출, 12/1 발표회
 
