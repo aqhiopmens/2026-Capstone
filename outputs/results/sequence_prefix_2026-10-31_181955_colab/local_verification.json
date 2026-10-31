@@ -1,0 +1,14 @@
+{
+  "complete": true,
+  "scope": "local aggregate verification; row-level verification ran in Colab, new row CSVs not downloaded locally",
+  "run_id": "sequence_prefix_2026-10-31_181955_colab",
+  "new_runs": 36,
+  "baseline_runs": 12,
+  "subsets": 240,
+  "subset_confusion_cells": 40560,
+  "code_sha_match": true,
+  "runtime_versions_match": true,
+  "archive_runs": 36,
+  "audit_rows": 816,
+  "subset_summary_rows": 80
+}
