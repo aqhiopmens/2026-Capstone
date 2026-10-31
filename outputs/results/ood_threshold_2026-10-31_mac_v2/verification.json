@@ -1,0 +1,32 @@
+{
+  "complete": true,
+  "run_id": "ood_threshold_2026-10-31_mac_v2",
+  "machine": "eunbin-mac",
+  "models": 12,
+  "policies": 48,
+  "thresholds": 36,
+  "probability_rows": 439616,
+  "open_confusion_cells": 9408,
+  "closed_confusion_cells": 2028,
+  "row_files": 24,
+  "pattern_rows": 75504,
+  "verifier_sha256": "bb7dd5a2380edcb377ccc5428dbe560aafe52209cd92793cc5727bb3c8e12c44",
+  "aggregate_sha256": {
+    "summary.csv": "3b5f9c660529a7cf35fd534f15dd09a6e9a954499ff192c14a4640ea142d97e6",
+    "paired.csv": "86da1d51746bde1dad56f702868cd450622471d09d45c3c006fd094a63a249ac",
+    "partition_audit.csv": "e6bb6282d41e372fbcdfed5429d1949e344f3075fbce15fb6fe11e64277649ee",
+    "run_metadata.json": "07e9a5f82385154336e4dbb274ad23100d6120b0862655583d75d8f5c3aabae1",
+    "class_rejection.csv": "8c9d3ab0e64560fda8ae574dfd3392eb463761adbdf8b6b0ae463ed69bc0cc45",
+    "thresholds.csv": "bb6ed345e02344ec4b9149df0ef7b875b3daa29d4a2ea3ec0c51a73fedeb880b",
+    "metrics.csv": "51ee8d808142f13d45f3e1acd0fff57778b0116d6ab52d0f1d17858f37457d8d",
+    "confusion.csv": "1764f8437333b5c82617ddbca942c236af0b91a2ef127ac835ba8c4d0d0c8ac4",
+    "auc.csv": "c6d081300bc95af147aaf0baa89a1c9580098fe4ac15878a13502bacbe059c1a",
+    "open_confusion.csv": "9ad8fbcef544d6f5decfa61a77b448142c8c51d5d6a8f878a074538e30dfa386",
+    "pattern_summary.csv": "83d4341b1411de005005c1832a1dd02f749aa470d6ab57640946179c889e2c84",
+    "policy_metrics.csv": "7b34389ad281b5b116b75603bb685be41e4b47be1dabc3b79ce878fe148d5558",
+    "manifest.json": "228b7dbdfb65f5f80ea0110f80bbbbc8331b56576905a12da2eb7d8cf0845ce5",
+    "score_audit.csv": "aecadd66b293c48d4fd0af0888160686fc33e02c42853de129b57d4ccda1783f",
+    "pattern_rejection.csv": "60da6385b990ab815b09234e894dca91280b97b8939615c32f61b0a639fa4fd8",
+    "policy_summary.csv": "c8c3f9a54542e29d2cc16ffd65619df30b5699c9aace7fc3497899da06b87413"
+  }
+}

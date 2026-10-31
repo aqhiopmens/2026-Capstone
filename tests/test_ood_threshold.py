@@ -127,7 +127,7 @@ class DriverTests(unittest.TestCase):
                  patch.object(oe,'run_classification',side_effect=RuntimeError('intentional stop')):
                 with self.assertRaisesRegex(RuntimeError,'intentional'):oe.run_batch(run_id='synthetic')
             import json
-            m=json.loads((root/'outputs/results/synthetic/manifest.json').read_text())
+            m=json.loads((root/'outputs/results/synthetic/manifest.json').read_text(encoding='utf-8'))
             self.assertEqual((m['complete'],m['completed_runs'],m['completed_policies']),(False,0,0))
             with patch.object(oe,'ROOT',root),patch('src.common.config.DATA_DIR',data):
                 with self.assertRaises(FileExistsError):oe.run_batch(run_id='synthetic')
