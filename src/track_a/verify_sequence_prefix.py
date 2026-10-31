@@ -21,6 +21,13 @@ def close(actual, expected):
         raise ValueError(f"수치 불일치: {actual} != {expected}")
 
 
+def literal_patterns(sequence, k):
+    """NUL 바이트 비교 손실을 피하도록 원본 정수 바이트를 hex 문자열로 비교한다."""
+    values = sequence.to_numpy(dtype="<i8", copy=True)
+    values[:, k:] = 0
+    return pd.Series([value.tobytes().hex() for value in values], index=sequence.index)
+
+
 def verify(run_id, data_dir, machine):
     if not run_id or Path(run_id).name != run_id:
         raise ValueError("배치 ID 오류")
@@ -84,9 +91,7 @@ def verify(run_id, data_dir, machine):
                 close(pair[f"{score}_k30"], baseline_row[score])
                 close(pair[f"delta_{score}"], original_row[score] - baseline_row[score])
         test = pred.loc[pred.partition.eq("test")].set_index("row_id")
-        values = frame[[str(i) for i in range(30)]].to_numpy(dtype="<i8", copy=True)
-        values[:, k:] = 0
-        patterns = pd.Series([v.tobytes() for v in values], index=frame.index)
+        patterns = literal_patterns(frame[[str(i) for i in range(30)]], k)
         train_patterns = set(patterns.loc[parts.eq("train")])
         seen = patterns.isin(train_patterns)
         reached = lengths.ge(k)
@@ -118,12 +123,15 @@ def verify(run_id, data_dir, machine):
             assert classes.label.tolist() == known
             support, predicted_support, tp = matrix.sum(1), matrix.sum(0), matrix.diagonal()
             np.testing.assert_array_equal(classes.support, support)
+            close(score_row.present_classes, (support > 0).sum())
+            close(score_row.missing_classes, (support == 0).sum())
+            close(score_row.low_support_classes, ((support > 0) & (support < 30)).sum())
             for i, cls in enumerate(classes.itertuples(index=False)):
                 close(cls.recall, tp[i] / support[i] if support[i] else np.nan)
                 close(cls.f1, 2 * tp[i] / (support[i] + predicted_support[i]) if n and support[i] + predicted_support[i] else (0 if n else np.nan))
                 assert cls.low_support == bool(0 < support[i] < 30)
             if k != 30 and subset == "all":
-                selected_cm = matrices.loc[matrices.split.eq(split) & matrices.seed.eq(seed) & matrices.model.eq(model) & matrices.k.eq(k)]
+                selected_cm = matrices.loc[matrices.split.eq(split) & matrices.seed.eq(seed) & matrices.model.eq(model) & matrices.feature_group.eq(f"sequence_prefix_k{k}")]
                 np.testing.assert_array_equal(selected_cm["count"], matrix.ravel())
             checked += 1
         for record in audits.loc[audits.split.eq(split) & audits.seed.eq(seed) & audits.k.eq(k)].to_dict("records"):
@@ -134,8 +142,33 @@ def verify(run_id, data_dir, machine):
             local = set(patterns.loc[selected])
             for name, value in dict(rows=n, reached_k_rows=int((selected & reached).sum()),
                 short_rows=int((selected & ~reached).sum()), prefix_seen_rows=int((selected & seen).sum()),
-                prefix_patterns=len(local), shared_prefix_patterns=len(local & train_patterns)).items():
+                prefix_patterns=len(local), train_prefix_patterns=len(train_patterns),
+                shared_prefix_patterns=len(local & train_patterns),
+                short_fraction=(selected & ~reached).sum() / n if n else np.nan,
+                prefix_seen_fraction=(selected & seen).sum() / n if n else np.nan).items():
                 close(record[name], value)
+    subset_summary = read("subset_summary")
+    keys = ["machine", "split", "model", "k", "subset"]
+    assert len(subset_summary) == 80
+    for key, group in subsets.groupby(keys, dropna=False):
+        mask = pd.Series(True, index=subset_summary.index)
+        for column, value in zip(keys, key):
+            mask &= subset_summary[column].eq(value)
+        assert mask.sum() == 1 and set(group.seed) == {0, 1, 2}
+        row = subset_summary.loc[mask].iloc[0]
+        expected = dict(runs=3, valid_runs=group.macro_f1.notna().sum(), rows_min=group.rows.min(),
+            rows_max=group.rows.max(), present_classes_min=group.present_classes.min(),
+            present_classes_max=group.present_classes.max(), macro_f1_mean=group.macro_f1.mean(),
+            macro_f1_std=group.macro_f1.std(ddof=1), accuracy_mean=group.accuracy.mean(),
+            accuracy_std=group.accuracy.std(ddof=1))
+        for name, value in expected.items():
+            close(row[name], value)
+    class_scores.loc[class_scores.subset.eq("all")].to_csv(out / "class_scores.csv", index=False)
+    benign = class_scores.loc[class_scores.label.eq("benign")].copy()
+    benign["normal_false_alarm_rate"] = 1 - benign.recall
+    benign["normal_false_alarm_rows"] = np.where(benign.support.gt(0),
+        benign.support - (benign.recall * benign.support).round(), 0).astype(int)
+    benign.to_csv(out / "normal_false_alarms.csv", index=False)
     verification = dict(complete=True, run_id=run_id, machine=machine, new_runs=36, baseline_runs=12,
         checked_subsets=checked, new_confusion_cells=6084, subset_confusion_cells=40560,
         low_support_policy="scores retained; support 1..29 flagged", input_sha256=manifest["source_sha256"],

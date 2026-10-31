@@ -15,6 +15,7 @@ from src.track_a.sequence_prefix_analysis import (
     audit_prefix, prefix_input, score_subsets, summarize_subsets, validate_predictions,
 )
 from src.track_a.sequence_prefix_experiment import conditions, load_baseline_predictions, run_batch
+from src.track_a.verify_sequence_prefix import literal_patterns
 
 
 def sequence_fixture():
@@ -36,6 +37,17 @@ class PrefixTests(unittest.TestCase):
         changed = x.copy()
         changed.iloc[:, 5] = 999
         pd.testing.assert_frame_equal(prefix_input(x, 5), prefix_input(changed, 5))
+
+    def test_independent_literal_patterns_preserve_zero_suffix_and_sign(self):
+        x = sequence_fixture()
+        for k in (5, 10, 20, 30):
+            ids = literal_patterns(x, k)
+            expected = {tuple(row[:k]) for row in x.iloc[:1].to_numpy()}
+            observed = ids.isin(set(ids.iloc[:1]))
+            self.assertEqual(observed.tolist(), [tuple(row[:k]) in expected for row in x.to_numpy()])
+        changed = x.copy()
+        changed.iloc[1, 0] *= -1
+        self.assertNotEqual(literal_patterns(changed, 5).iloc[0], literal_patterns(changed, 5).iloc[1])
 
     def test_invalid_sequence_or_k_fails(self):
         x = sequence_fixture()
