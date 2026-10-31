@@ -1,0 +1,281 @@
+{
+  "runs": [
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_pattern_group_rf_sequence_s2",
+      "folder_id": "1UuRv0v2T2mg0JLe1ofjNNscz29_HLOOU",
+      "folder_url": "https://drive.google.com/drive/folders/1UuRv0v2T2mg0JLe1ofjNNscz29_HLOOU",
+      "files": [
+        {
+          "id": "1eSWNsGEZ0Q99tWgs82OrwdZpkYjc4lLo",
+          "name": "assignments.csv",
+          "bytes": 1200068,
+          "url": "https://drive.google.com/file/d/1eSWNsGEZ0Q99tWgs82OrwdZpkYjc4lLo/view?usp=drivesdk",
+          "sha256": "527fba595fc188302c21e7ddd6f7eb3bb7f6b0698677e606b7fd04a15c3493bd",
+          "lf_sha256": "527fba595fc188302c21e7ddd6f7eb3bb7f6b0698677e606b7fd04a15c3493bd"
+        },
+        {
+          "id": "1iFUzLs_21v4M6e1f1BF0DGZI8KV2zt_V",
+          "name": "predictions.csv",
+          "bytes": 4190181,
+          "url": "https://drive.google.com/file/d/1iFUzLs_21v4M6e1f1BF0DGZI8KV2zt_V/view?usp=drivesdk",
+          "sha256": "352c4d12246c99d59dfba05ad07c6ce732890974838b99163e49f4c529526d76",
+          "lf_sha256": "352c4d12246c99d59dfba05ad07c6ce732890974838b99163e49f4c529526d76"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_pattern_group_rf_all_s2",
+      "folder_id": "1blTfWmBSqsEULKDDhxGAMShmAVcuzF8S",
+      "folder_url": "https://drive.google.com/drive/folders/1blTfWmBSqsEULKDDhxGAMShmAVcuzF8S",
+      "files": [
+        {
+          "id": "1rr-wAed03b3nWz7AkEv-rimdrMzpwEDI",
+          "name": "assignments.csv",
+          "bytes": 1200068,
+          "url": "https://drive.google.com/file/d/1rr-wAed03b3nWz7AkEv-rimdrMzpwEDI/view?usp=drivesdk",
+          "sha256": "527fba595fc188302c21e7ddd6f7eb3bb7f6b0698677e606b7fd04a15c3493bd",
+          "lf_sha256": "527fba595fc188302c21e7ddd6f7eb3bb7f6b0698677e606b7fd04a15c3493bd"
+        },
+        {
+          "id": "1aX72p2lk_e8sHTgUO7pulmmnCrHb6rUK",
+          "name": "predictions.csv",
+          "bytes": 3931244,
+          "url": "https://drive.google.com/file/d/1aX72p2lk_e8sHTgUO7pulmmnCrHb6rUK/view?usp=drivesdk",
+          "sha256": "a0d8442ce916a40ba6cd914876f1b68df71680cd06633f13e78e0fe94ddc639f",
+          "lf_sha256": "a0d8442ce916a40ba6cd914876f1b68df71680cd06633f13e78e0fe94ddc639f"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_pattern_group_rf_sequence_s1",
+      "folder_id": "1tNx1vYxzxNJl-6crI3QcA5CsL7bNh-eB",
+      "folder_url": "https://drive.google.com/drive/folders/1tNx1vYxzxNJl-6crI3QcA5CsL7bNh-eB",
+      "files": [
+        {
+          "id": "1tLqtEi-38UMCqUTzu1zFVH-2nTWuO8Ys",
+          "name": "assignments.csv",
+          "bytes": 1200063,
+          "url": "https://drive.google.com/file/d/1tLqtEi-38UMCqUTzu1zFVH-2nTWuO8Ys/view?usp=drivesdk",
+          "sha256": "8ec1eddb3bdaf089e99d0f9c55e76082a5b47bc00aabb7f3a723874a1d1ff0c3",
+          "lf_sha256": "8ec1eddb3bdaf089e99d0f9c55e76082a5b47bc00aabb7f3a723874a1d1ff0c3"
+        },
+        {
+          "id": "1iGgJSmmPg5E88DlYGVIK8hiKVuZdPw6g",
+          "name": "predictions.csv",
+          "bytes": 4085889,
+          "url": "https://drive.google.com/file/d/1iGgJSmmPg5E88DlYGVIK8hiKVuZdPw6g/view?usp=drivesdk",
+          "sha256": "abc1db46976b5a4e25deda3dd257b5f7713d7bc142777fb98c21c4a2e25f13b4",
+          "lf_sha256": "abc1db46976b5a4e25deda3dd257b5f7713d7bc142777fb98c21c4a2e25f13b4"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_pattern_group_rf_all_s1",
+      "folder_id": "1Vfdikna3bSzBkp0SfojNLqHBernm8jpZ",
+      "folder_url": "https://drive.google.com/drive/folders/1Vfdikna3bSzBkp0SfojNLqHBernm8jpZ",
+      "files": [
+        {
+          "id": "1IJI5oDYvMe8HUWXoH7i3s39N7zVTGeFv",
+          "name": "assignments.csv",
+          "bytes": 1200063,
+          "url": "https://drive.google.com/file/d/1IJI5oDYvMe8HUWXoH7i3s39N7zVTGeFv/view?usp=drivesdk",
+          "sha256": "8ec1eddb3bdaf089e99d0f9c55e76082a5b47bc00aabb7f3a723874a1d1ff0c3",
+          "lf_sha256": "8ec1eddb3bdaf089e99d0f9c55e76082a5b47bc00aabb7f3a723874a1d1ff0c3"
+        },
+        {
+          "id": "1jt09W89J_5If_1xhjgOAMC5UhQQ_cHVk",
+          "name": "predictions.csv",
+          "bytes": 3963396,
+          "url": "https://drive.google.com/file/d/1jt09W89J_5If_1xhjgOAMC5UhQQ_cHVk/view?usp=drivesdk",
+          "sha256": "e3043274be732f7634e6a970c747051f01a821bc7212f437519ddbc3ef34b0d5",
+          "lf_sha256": "e3043274be732f7634e6a970c747051f01a821bc7212f437519ddbc3ef34b0d5"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_pattern_group_rf_sequence_s0",
+      "folder_id": "1EMhks5NQoOj9nv3w58Hc_kPa6pcUW5KS",
+      "folder_url": "https://drive.google.com/drive/folders/1EMhks5NQoOj9nv3w58Hc_kPa6pcUW5KS",
+      "files": [
+        {
+          "id": "16BYX5lv5VA8fUEB2cnmRvCyVPYfggJRC",
+          "name": "assignments.csv",
+          "bytes": 1200063,
+          "url": "https://drive.google.com/file/d/16BYX5lv5VA8fUEB2cnmRvCyVPYfggJRC/view?usp=drivesdk",
+          "sha256": "ebfcf3ad49814b35257f26b5def120cd384ce5dc4bb24596940337328050632c",
+          "lf_sha256": "ebfcf3ad49814b35257f26b5def120cd384ce5dc4bb24596940337328050632c"
+        },
+        {
+          "id": "12RNVwRPsWtm0sKsNWxgIoPEk-WxNnOdk",
+          "name": "predictions.csv",
+          "bytes": 4128420,
+          "url": "https://drive.google.com/file/d/12RNVwRPsWtm0sKsNWxgIoPEk-WxNnOdk/view?usp=drivesdk",
+          "sha256": "8724dd77ab2ca47c3340ff6865b9cacc68e10c63e07a108193020dabb8a92f20",
+          "lf_sha256": "8724dd77ab2ca47c3340ff6865b9cacc68e10c63e07a108193020dabb8a92f20"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_pattern_group_rf_all_s0",
+      "folder_id": "1eYb4TgVpBtKzhs8Kar35I2Ax93q3B9IB",
+      "folder_url": "https://drive.google.com/drive/folders/1eYb4TgVpBtKzhs8Kar35I2Ax93q3B9IB",
+      "files": [
+        {
+          "id": "1eSGnsm6h26_7WBbzkdeRZ5hNxeMmAC8S",
+          "name": "assignments.csv",
+          "bytes": 1200063,
+          "url": "https://drive.google.com/file/d/1eSGnsm6h26_7WBbzkdeRZ5hNxeMmAC8S/view?usp=drivesdk",
+          "sha256": "ebfcf3ad49814b35257f26b5def120cd384ce5dc4bb24596940337328050632c",
+          "lf_sha256": "ebfcf3ad49814b35257f26b5def120cd384ce5dc4bb24596940337328050632c"
+        },
+        {
+          "id": "1hE1B0eqc5Ngf5iQ7yZNJYWzTx3INseEX",
+          "name": "predictions.csv",
+          "bytes": 3959638,
+          "url": "https://drive.google.com/file/d/1hE1B0eqc5Ngf5iQ7yZNJYWzTx3INseEX/view?usp=drivesdk",
+          "sha256": "b618c20ed9838f97b0e1aa869abd2d532fb2529aa0d01c128712844d3921331b",
+          "lf_sha256": "b618c20ed9838f97b0e1aa869abd2d532fb2529aa0d01c128712844d3921331b"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_random_rf_sequence_s2",
+      "folder_id": "1jARLO_ufhKKM2XZTbr2yac24InAiCCP_",
+      "folder_url": "https://drive.google.com/drive/folders/1jARLO_ufhKKM2XZTbr2yac24InAiCCP_",
+      "files": [
+        {
+          "id": "1KQcMjGAHaIMq-DDfxf4d43-J48R2yZog",
+          "name": "assignments.csv",
+          "bytes": 1198532,
+          "url": "https://drive.google.com/file/d/1KQcMjGAHaIMq-DDfxf4d43-J48R2yZog/view?usp=drivesdk",
+          "sha256": "8443abafe3e8b5829f98e1c60e9904ad5b511d7d8eed05f950360b75304debd6",
+          "lf_sha256": "8443abafe3e8b5829f98e1c60e9904ad5b511d7d8eed05f950360b75304debd6"
+        },
+        {
+          "id": "1WiQ38waMTg-sDBic7GOV8vpS83HsMFvn",
+          "name": "predictions.csv",
+          "bytes": 4113709,
+          "url": "https://drive.google.com/file/d/1WiQ38waMTg-sDBic7GOV8vpS83HsMFvn/view?usp=drivesdk",
+          "sha256": "5833b82b1045a731d94be370f598f790f4e76769c94993d4e9744fbd456f75f9",
+          "lf_sha256": "5833b82b1045a731d94be370f598f790f4e76769c94993d4e9744fbd456f75f9"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_random_rf_all_s2",
+      "folder_id": "1YFoyqR_X3FryCYlqh_gnBM0VosZcZpa3",
+      "folder_url": "https://drive.google.com/drive/folders/1YFoyqR_X3FryCYlqh_gnBM0VosZcZpa3",
+      "files": [
+        {
+          "id": "1asGSdXYXMU__345IvNUhJl8NVxvZwyeS",
+          "name": "assignments.csv",
+          "bytes": 1198532,
+          "url": "https://drive.google.com/file/d/1asGSdXYXMU__345IvNUhJl8NVxvZwyeS/view?usp=drivesdk",
+          "sha256": "8443abafe3e8b5829f98e1c60e9904ad5b511d7d8eed05f950360b75304debd6",
+          "lf_sha256": "8443abafe3e8b5829f98e1c60e9904ad5b511d7d8eed05f950360b75304debd6"
+        },
+        {
+          "id": "1TKD3wPBJF-1L4_KRNvOXNf6zV-hKWAgq",
+          "name": "predictions.csv",
+          "bytes": 3920918,
+          "url": "https://drive.google.com/file/d/1TKD3wPBJF-1L4_KRNvOXNf6zV-hKWAgq/view?usp=drivesdk",
+          "sha256": "58c7cdd41db80dc36711f19dea3fd27d0506db3b893702ada7364b956a621c69",
+          "lf_sha256": "58c7cdd41db80dc36711f19dea3fd27d0506db3b893702ada7364b956a621c69"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_random_rf_sequence_s1",
+      "folder_id": "13IzN-cFEV6EaVR8lJiAptT5h1pShVmyx",
+      "folder_url": "https://drive.google.com/drive/folders/13IzN-cFEV6EaVR8lJiAptT5h1pShVmyx",
+      "files": [
+        {
+          "id": "1XoD3l619U8AT72h5-z2SXJjouk2t_zRf",
+          "name": "assignments.csv",
+          "bytes": 1198532,
+          "url": "https://drive.google.com/file/d/1XoD3l619U8AT72h5-z2SXJjouk2t_zRf/view?usp=drivesdk",
+          "sha256": "ae99a1ae82ddb7cdda904c6d2c6a3658881b91218c85af30e27c8f068e207eed",
+          "lf_sha256": "ae99a1ae82ddb7cdda904c6d2c6a3658881b91218c85af30e27c8f068e207eed"
+        },
+        {
+          "id": "1nudJnf7rJ-m4PcsOwmKQKcw6g_h-rWWE",
+          "name": "predictions.csv",
+          "bytes": 4062489,
+          "url": "https://drive.google.com/file/d/1nudJnf7rJ-m4PcsOwmKQKcw6g_h-rWWE/view?usp=drivesdk",
+          "sha256": "c85f1e10e162f78a84ac8c9663240e0b75d9f8c600a10aaa1dab36b0b2fc2425",
+          "lf_sha256": "c85f1e10e162f78a84ac8c9663240e0b75d9f8c600a10aaa1dab36b0b2fc2425"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_random_rf_all_s1",
+      "folder_id": "1SQZ4zNrDss9rOShit4uC_rkkqTb415AB",
+      "folder_url": "https://drive.google.com/drive/folders/1SQZ4zNrDss9rOShit4uC_rkkqTb415AB",
+      "files": [
+        {
+          "id": "1IB6ad77OEDgqkjLB8kSJF3QSr2kHicyV",
+          "name": "assignments.csv",
+          "bytes": 1198532,
+          "url": "https://drive.google.com/file/d/1IB6ad77OEDgqkjLB8kSJF3QSr2kHicyV/view?usp=drivesdk",
+          "sha256": "ae99a1ae82ddb7cdda904c6d2c6a3658881b91218c85af30e27c8f068e207eed",
+          "lf_sha256": "ae99a1ae82ddb7cdda904c6d2c6a3658881b91218c85af30e27c8f068e207eed"
+        },
+        {
+          "id": "1GmMj2xocGsfj24SY9ZKjRpAij3QMcK2Z",
+          "name": "predictions.csv",
+          "bytes": 3921070,
+          "url": "https://drive.google.com/file/d/1GmMj2xocGsfj24SY9ZKjRpAij3QMcK2Z/view?usp=drivesdk",
+          "sha256": "a23121401bbe2f80ebaaae2dcde22a2f59b5dec25e506cae6d4608394d02e576",
+          "lf_sha256": "a23121401bbe2f80ebaaae2dcde22a2f59b5dec25e506cae6d4608394d02e576"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_random_rf_sequence_s0",
+      "folder_id": "1bVBQGVcbHy31tYWE2FeVUi0ShlbeUyyW",
+      "folder_url": "https://drive.google.com/drive/folders/1bVBQGVcbHy31tYWE2FeVUi0ShlbeUyyW",
+      "files": [
+        {
+          "id": "1P6W9uoLEA1QYpdjlD9zq0oDuRdWW0fwl",
+          "name": "assignments.csv",
+          "bytes": 1198532,
+          "url": "https://drive.google.com/file/d/1P6W9uoLEA1QYpdjlD9zq0oDuRdWW0fwl/view?usp=drivesdk",
+          "sha256": "cc5e5ded9e928ede032d74489c3f67827187cb5cdd492bf83c578d153ea98a0f",
+          "lf_sha256": "cc5e5ded9e928ede032d74489c3f67827187cb5cdd492bf83c578d153ea98a0f"
+        },
+        {
+          "id": "1nW-eHnZJIZhbXWh6FYnIC3BOlexNRh4-",
+          "name": "predictions.csv",
+          "bytes": 3996182,
+          "url": "https://drive.google.com/file/d/1nW-eHnZJIZhbXWh6FYnIC3BOlexNRh4-/view?usp=drivesdk",
+          "sha256": "db1ef12fb0d20ded55ebe20126f9fe482c125342fe8bf0e10987d32c883e30d1",
+          "lf_sha256": "db1ef12fb0d20ded55ebe20126f9fe482c125342fe8bf0e10987d32c883e30d1"
+        }
+      ]
+    },
+    {
+      "run_id": "ood_threshold_2026-10-31_210713_colab_random_rf_all_s0",
+      "folder_id": "1qv_ZuE-Pw_cT36Z-qCDUFMK4mDvxyXA4",
+      "folder_url": "https://drive.google.com/drive/folders/1qv_ZuE-Pw_cT36Z-qCDUFMK4mDvxyXA4",
+      "files": [
+        {
+          "id": "1w0pOHEjX5NfZZGRYAiM_RTbV_-_Uwlmk",
+          "name": "assignments.csv",
+          "bytes": 1198532,
+          "url": "https://drive.google.com/file/d/1w0pOHEjX5NfZZGRYAiM_RTbV_-_Uwlmk/view?usp=drivesdk",
+          "sha256": "cc5e5ded9e928ede032d74489c3f67827187cb5cdd492bf83c578d153ea98a0f",
+          "lf_sha256": "cc5e5ded9e928ede032d74489c3f67827187cb5cdd492bf83c578d153ea98a0f"
+        },
+        {
+          "id": "12NIGtycPqZxRuMRS5i1klqomFybohiAn",
+          "name": "predictions.csv",
+          "bytes": 3919943,
+          "url": "https://drive.google.com/file/d/12NIGtycPqZxRuMRS5i1klqomFybohiAn/view?usp=drivesdk",
+          "sha256": "50e5c9fea5aab8ae04a6438c8d25925c28f9924548c993f9c5108a99c91834b1",
+          "lf_sha256": "50e5c9fea5aab8ae04a6438c8d25925c28f9924548c993f9c5108a99c91834b1"
+        }
+      ]
+    }
+  ],
+  "scope": "Drive names/sizes read back; 24 sizes match archived metadata. SHA values copied from run metadata, remote bytes not locally hashed."
+}

@@ -1,0 +1,21 @@
+{
+  "upstream_commit": "c8bf0c685fa0bc599500e49369afc991a8c5658e",
+  "runtime_snapshot_commit": "ad38fb64d5dde6c608128a952ee2526819565e18",
+  "machine": "colab-cpu",
+  "versions": [
+    "3.12.13",
+    "2.0.2",
+    "2.2.2",
+    "1.6.1",
+    "4.6.0",
+    "2.11.0"
+  ],
+  "colab_release": "release-colab-external-images_20260715-060047_RC00",
+  "code_zip_sha256": "db38f2aad8dfa6fcd14b3ed5c02258b1e746b7bd987dce02dd3dca33a5c100d7",
+  "run_id": "ood_threshold_2026-10-31_210713_colab",
+  "source_snapshot_sha256": "7cd3a790202c541734e45ee5604fcad8f3aca1cd3d37b4a10f90b8c1332b9fd4",
+  "complete": true,
+  "final_zip": "final_007.zip",
+  "final_zip_sha256": "16be0de02c149ef83d0e3619e885032dbb06196492e26e14c9ad0ede19f34a6b",
+  "last_checkpoint_count": 7
+}

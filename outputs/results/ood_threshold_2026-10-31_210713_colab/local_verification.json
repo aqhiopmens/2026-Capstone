@@ -1,0 +1,29 @@
+{
+  "complete": true,
+  "run_id": "ood_threshold_2026-10-31_210713_colab",
+  "scope": "Downloaded ZIP/provenance/SHA and independent aggregate recalculation only; no local row CSV download, refit or inference",
+  "models": 12,
+  "policies": 48,
+  "open_confusion_cells": 9408,
+  "closed_confusion_cells": 2028,
+  "pattern_rows": 75504,
+  "probability_rows_verified_in_colab": 439616,
+  "local_row_files_checked": 0,
+  "paired_policies": 48,
+  "max_abs_delta": {
+    "macro_f1": 0.08126791329484295,
+    "accuracy": 0.11837885871035048,
+    "known_reject_rate": 0.0837305858834384,
+    "unknown_reject_rate": 0.24314669565892683,
+    "unknown_class_macro_reject_rate": 0.2126506395558918,
+    "benign_reject_rate": 0.0007352941176470588,
+    "benign_wrong_known_rate": 0.0,
+    "accepted_known_accuracy": 0.010004700033464209,
+    "known_coverage": 0.0837305858834384,
+    "unknown_pattern_macro_reject_rate": 0.11765306755401328
+  },
+  "remote_row_file_sizes_matched": 24,
+  "archived_metadata_original_sha_checked": 12,
+  "source_inputs_match_mac": true,
+  "source_dirty_at_start": false
+}
