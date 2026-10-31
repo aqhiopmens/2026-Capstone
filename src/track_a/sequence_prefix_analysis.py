@@ -68,7 +68,7 @@ def validate_predictions(predictions, assignments, labels, partitions, known_lab
             or not np.isfinite(ordered.max_probability).all()
             or not ordered.max_probability.between(0, 1).all()):
         raise ValueError("예측 라벨·배정·확률 오류")
-    return ordered.reset_index()
+    return ordered.rename_axis("row_id").reset_index()
 
 
 def score_subsets(predictions, *, known_labels, masks, identity):

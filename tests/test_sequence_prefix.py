@@ -107,7 +107,10 @@ class SubsetTests(unittest.TestCase):
         labels = pd.Series(["a", "a", "b", "c", "u"], index=range(10, 15))
         parts = pd.Series(["test"] * 4 + ["unknown"], index=labels.index)
         assignments = pd.DataFrame(dict(row_id=labels.index, partition=parts.to_numpy()))
-        validate_predictions(self.pred, assignments, labels, parts, ["a", "b", "c"])
+        restored = validate_predictions(self.pred, assignments, labels, parts, ["a", "b", "c"])
+        self.assertIn("row_id", restored.columns)
+        self.assertEqual(restored.row_id.tolist(), labels.index.tolist())
+        score_subsets(restored, known_labels=["a", "b", "c"], masks=self.masks, identity=self.identity)
         for column, value in (("actual", "wrong"), ("partition", "train"), ("max_probability", 1.1)):
             pred = self.pred.copy()
             pred.loc[0, column] = value
