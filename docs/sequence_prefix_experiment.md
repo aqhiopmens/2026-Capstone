@@ -69,3 +69,7 @@
 - [개인 Colab 런처](https://colab.research.google.com/drive/11cbU6cGQM6IdtjLDkm32t5uPgbtFGvAY). 서은빈 계정의 개인 Colab 폴더에 소스 ZIP·노트 2개만 올리고 파일명·MIME·크기를 재확인했다
 
 런처는 고정 버전·호스팅 Colab·CPU·snapshot/소스 SHA·입력 및 기준선 예측 24파일·테스트를 확인한 뒤 기존 `.py`를 호출한다. 중간 집계 ZIP을 보존하고 36회 및 저장 예측 검증이 모두 성공한 뒤에만 final ZIP과 complete=true를 기록한다. 현재는 **코드 부분 교차 검토와 보고 보완을 완료했고 Colab 학습은 시작하지 않았다**. 서은빈이 PR 병합 후 직접 실행한다. 최종 계정·런타임 상태는 실제 실행 직전에 다시 확인한다. 이 준비가 Colab 최종 수치를 의미하지 않는다.
+
+## 후속 Colab 실행 완료
+
+#21은 `9adb895`로 병합됐고 서은빈이 고정 Colab CPU에서 최종 36회 및 저장 예측 검증을 완료했다. [최종 수치·맥 비교·검증 범위](sequence_prefix_colab.md)를 따른다. 위의 Colab 준비·검토 대기 문장은 당시의 진행 기록이며, 맥 예비 표는 그대로 보존한다.

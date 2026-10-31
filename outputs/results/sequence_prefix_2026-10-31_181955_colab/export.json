@@ -1,0 +1,25 @@
+{
+  "drive_export_folder": "https://drive.google.com/drive/folders/1EiRFjGTfQG8Zh-95jbLdyPeZORSmo8eu",
+  "drive_final_zip": "https://drive.google.com/file/d/1UblEoEfPOlAL-ea2mdmO3ffemHKOZHT9/view",
+  "zip_sha256": "b2535d471e43f21adaab4d62688c05177db094112a18d9d9a86f6ce7271a7818",
+  "zip_bytes": 282804,
+  "batch_files_sha256": {
+    "summary.csv": "4a3216c6e0c9c5303760ee600c156cc55275b927eb7c96f9234d1f4d59c06002",
+    "paired.csv": "b6bcecfb7f26497a31f7876a956a6f1dfe35f945fdd87a4607e7313e78992e83",
+    "subset_class_scores.csv": "f09fffd204b4760a43e5b2550abb46cc881b2d631af4d4cb1b7d3e5bcff0c14f",
+    "subset_summary.csv": "21ddbec41be555a69407b92b42376ec044b3f34bc3cbee5c7ce85baace56e02a",
+    "run_metadata.json": "c4f83e9997db4762e947f6e1b4e4ef187d9da6048876aac646458549e11f2a14",
+    "class_scores.csv": "7f51efbd0947dbc74d95837bfbe32690f864d74b69fc50031a06cfae1ed51bc9",
+    "subset_confusion.csv": "3df27284df3a57b62d555f23425fd12c46c7e872973b217abb293785b097b970",
+    "prefix_audit.csv": "ad912ed3627f7d9c794d2e4f5a22484e0eef2b3b0a0d95b3a0d7847b1cefae36",
+    "metrics.csv": "db49a004c61bd7609f321031d144e42594f9be56f85ead56ea238252b3e60da3",
+    "confusion.csv": "0decb1b589354bc64ae8706d0194f75f21c3c788ec0bccfe0751c3aafb47aae3",
+    "normal_false_alarms.csv": "c42864cc484924817a656ecdfdd6b0972f956882745c8a948b603a84c0132562",
+    "comparison_curve.csv": "d34efb8a553c2ccc7f58f407f4ed42db66e0724ca48944bc9311f8f16837cd94",
+    "curve_summary.csv": "ef93aab05bebb6eecf92e170de422c904e4cee551a673f4170cfae6f7e616ea5",
+    "subset_scores.csv": "41cf2ed41f3a6b92e8d8a4663974f73ad3819b7b38c1930e190ac4a07a385495",
+    "manifest.json": "df16839b6990f55981ba79527d420c77eba62ae84b8aeb7bf27d87acf7227281",
+    "verification.json": "41fdcf20568d342a96c7e37a0da680e4eaa8d2996653ac3b17263bc667235fe5"
+  },
+  "validation_scope": "Colab row verification complete; local aggregate verification complete; no new local row downloads or retraining"
+}
