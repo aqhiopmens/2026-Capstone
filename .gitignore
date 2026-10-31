@@ -36,3 +36,10 @@ outputs/results/sequence_prefix_*_pattern_group_*_s[012]/
 
 # 행 ID 복원 오류로 학습 전 중단된 0/36 실행 기록은 로컬 보존
 outputs/results/sequence_prefix_2026-10-31_mac/
+
+# 미확인 문턱 평가: 개별 중복 집계는 로컬, 배치 아카이브만 공유
+outputs/results/ood_threshold_*_random_rf_*_s[012]/
+outputs/results/ood_threshold_*_pattern_group_rf_*_s[012]/
+
+# 저장 권한으로 첫 모델 뒤 중단된 미완료 배치는 로컬 보존
+outputs/results/ood_threshold_2026-10-31_mac/

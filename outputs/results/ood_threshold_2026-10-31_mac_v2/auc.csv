@@ -1,0 +1,13 @@
+date,track,experiment,split,feature_group,model,seed,split_seed,machine,sklearn,lightgbm,torch,note,source_run_id,known_rows,unknown_rows,auroc
+2026-10-31,A,ood_threshold,random,all,rf,0,0,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_random_rf_all_s0,13167,12877,0.9918439628408033
+2026-10-31,A,ood_threshold,random,sequence,rf,0,0,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_random_rf_sequence_s0,13167,12877,0.9615083023260802
+2026-10-31,A,ood_threshold,random,all,rf,1,1,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_random_rf_all_s1,13167,12877,0.9905398749768353
+2026-10-31,A,ood_threshold,random,sequence,rf,1,1,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_random_rf_sequence_s1,13167,12877,0.9523378002898814
+2026-10-31,A,ood_threshold,random,all,rf,2,2,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_random_rf_all_s2,13167,12877,0.9958260783824926
+2026-10-31,A,ood_threshold,random,sequence,rf,2,2,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_random_rf_sequence_s2,13167,12877,0.9659687682192106
+2026-10-31,A,ood_threshold,pattern_group,all,rf,0,0,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_pattern_group_rf_all_s0,13006,12877,0.9883956611634768
+2026-10-31,A,ood_threshold,pattern_group,sequence,rf,0,0,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_pattern_group_rf_sequence_s0,13006,12877,0.9314495214907353
+2026-10-31,A,ood_threshold,pattern_group,all,rf,1,1,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_pattern_group_rf_all_s1,13006,12877,0.9881617651370183
+2026-10-31,A,ood_threshold,pattern_group,sequence,rf,1,1,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_pattern_group_rf_sequence_s1,13006,12877,0.8880325943434977
+2026-10-31,A,ood_threshold,pattern_group,all,rf,2,2,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_pattern_group_rf_all_s2,13006,12877,0.9874108049915158
+2026-10-31,A,ood_threshold,pattern_group,sequence,rf,2,2,eunbin-mac,1.6.1,4.6.0,,맥 예비; 최종은 Colab CPU,ood_threshold_2026-10-31_mac_v2_pattern_group_rf_sequence_s2,13006,12877,0.9583653250473785
