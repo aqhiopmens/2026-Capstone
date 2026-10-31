@@ -53,6 +53,31 @@ class SubsetTests(unittest.TestCase):
         self.assertTrue(np.isnan(scores["accuracy"]) and np.isnan(scores["macro_f1"]))
 
 
+class DiagnosticsTests(unittest.TestCase):
+    def test_diversity_shared_and_majority_baseline(self):
+        rows = []
+        for day in ("2021-04-12", "2021-04-17"):
+            rows += [("benign", day, [10, -20, 30, -40, 50], 5, []), ("benign", day, [11, -20, 30, -40, 50], 5, []),
+                     ("bruteforce_xml", day, [99, -1, 2, -3, 4], 5, [])]
+        d = ee.diagnostics(flows(rows), ks=(5,))
+        diversity = d[d.kind == "prefix_diversity"].iloc[0]
+        self.assertEqual((diversity.attack_distinct, diversity.benign_distinct, diversity.shared), (1, 2, 0))
+        majority = d[d.kind == "majority"]
+        self.assertEqual(set(majority.name), {"benign"})
+        self.assertTrue(np.allclose(majority.accuracy, 2 / 3))
+        first = d[(d.kind == "single_feature") & (d.name == "seq_0")]
+        self.assertTrue((first.accuracy == 1.0).all())
+
+    def test_n_seen_alone_cannot_beat_majority_when_all_flows_reach_k(self):
+        rows = []
+        for day in ("2021-04-12", "2021-04-17"):
+            rows += [("benign", day, [1, 2, 3], 3, []), ("benign", day, [4, 5, 6], 3, []),
+                     ("bruteforce_xml", day, [7, 8, 9], 3, [])]
+        d = ee.diagnostics(flows(rows), ks=(3,))
+        n_seen = d[(d.kind == "single_feature") & (d.name == "n_seen")]
+        self.assertTrue(np.allclose(n_seen.accuracy, 2 / 3))
+
+
 class LatencyTests(unittest.TestCase):
     def test_latency_counts_only_flows_that_reached_k_and_uses_total_payload_packets(self):
         df = flows([("a", "d", [1, 2, 3], 3, [0.1, 0.2, 0.3]),
