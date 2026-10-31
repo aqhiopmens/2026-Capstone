@@ -12,11 +12,14 @@ import json
 import mmap
 import socket
 import struct
+import subprocess
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+from src.common.results import sha256_file
 
 SERVER_PORT = 443
 K_MAX = 30
@@ -48,7 +51,8 @@ class Flow:
     closed: bool = False
     seq: list = field(default_factory=list)    # 최대 30개, 부호 있는 길이
     times: list = field(default_factory=list)  # 같은 위치 패킷의 start_ts 대비 경과 초
-    max_end: dict = field(default_factory=dict)
+    seq_ref: dict = field(default_factory=dict)  # 방향별 기준 순서 번호(첫 페이로드)
+    ranges: dict = field(default_factory=dict)   # 방향별 이미 받은 바이트 구간(병합된 [시작, 끝) 목록)
 
 
 def iter_tcp_packets(path):
@@ -84,6 +88,9 @@ def iter_tcp_packets(path):
             if incl < off + 20 or mm[start + off + 9] != 6:
                 skipped["non_tcp"] += 1
                 continue
+            if mm[start + off] >> 4 != 4:
+                skipped["bad_ip_version"] += 1
+                continue
             ihl = (mm[start + off] & 0x0F) * 4
             total = struct.unpack_from(">H", mm, start + off + 2)[0]
             if struct.unpack_from(">H", mm, start + off + 6)[0] & 0x3FFF:
@@ -96,6 +103,9 @@ def iter_tcp_packets(path):
             sport, dport, seq = struct.unpack_from(">HHI", mm, tcp)
             data_off = (mm[tcp + 12] >> 4) * 4
             payload = total - ihl - data_off
+            if data_off < 20:
+                skipped["bad_tcp_offset"] += 1
+                continue
             if payload < 0:
                 skipped["bad_length"] += 1
                 continue
@@ -104,17 +114,40 @@ def iter_tcp_packets(path):
                    payload), skipped
 
 
-def _serial_advances(new_end, prev_end):
-    """TCP 32비트 순서 번호 비교: new_end 가 prev_end 보다 앞서면 True."""
-    return 0 < ((new_end - prev_end) & 0xFFFFFFFF) < 0x80000000
+def record_segment(flow, direction, seq, length):
+    """페이로드 구간 [seq, seq+length)를 기록한다. 새 바이트가 하나라도 있으면 True, 이미 받은 구간만
+    다시 온 것(완전한 재전송)이면 False.
+
+    순서 뒤바뀜(앞 구간이 늦게 도착)과 재전송은 다르다. 이미 받은 구간들의 합집합으로 판단하므로,
+    겹치지 않는 늦은 구간은 새 패킷으로 센다. 일부만 겹치는 구간도 새 바이트가 있어 센다.
+    순서 번호는 방향별 첫 값을 기준으로 부호 있는 상대 위치로 바꿔 32비트 순환을 처리한다.
+    """
+    reference = flow.seq_ref.setdefault(direction, seq)
+    start = ((seq - reference + 0x80000000) & 0xFFFFFFFF) - 0x80000000
+    end = start + length
+    ranges = flow.ranges.setdefault(direction, [])
+    for first, last in ranges:
+        if first <= start and end <= last:
+            return False
+    merged, kept = [start, end], []
+    for first, last in ranges:
+        if first <= merged[1] and last >= merged[0]:
+            merged = [min(first, merged[0]), max(last, merged[1])]
+        else:
+            kept.append([first, last])
+    kept.append(merged)
+    kept.sort()
+    flow.ranges[direction] = kept
+    return True
 
 
 def assemble_flows(path):
     """443 포트 TCP 패킷을 플로우로 묶는다. (flows, skipped, total_tcp_packets) 반환.
 
     플로우 경계: 마지막 패킷 후 IDLE_TIMEOUT 초 경과, 또는 이미 페이로드가 오갔거나 FIN/RST로 끝난
-    4-튜플에 SYN(ACK 없음)이 다시 도착하면 새 플로우. 재전송(순서 번호가 앞서지 않는 같은 방향
-    페이로드)은 세지 않는다. SYN 없이 시작한 플로우는 midstream 으로 표시한다.
+    4-튜플에 SYN(ACK 없음)이 다시 도착하면 새 플로우. 같은 방향에서 이미 받은 바이트 구간만 다시 온
+    패킷(완전한 재전송)은 세지 않고, 순서가 뒤바뀌어 늦게 온 새 구간은 센다(record_segment).
+    SYN 없이 시작한 플로우는 midstream 으로 표시한다.
     """
     flows, active, tcp_packets, skipped = [], {}, 0, {}
     for packet, skipped in iter_tcp_packets(path):
@@ -140,12 +173,9 @@ def assemble_flows(path):
         if flags & (FIN | RST):
             flow.closed = True
         if plen > 0:
-            end = (seq + plen) & 0xFFFFFFFF
-            previous = flow.max_end.get(direction)
-            if previous is not None and not _serial_advances(end, previous):
+            if not record_segment(flow, direction, seq, plen):
                 flow.retransmissions += 1
                 continue
-            flow.max_end[direction] = end
             flow.payload_packets += 1
             if len(flow.seq) < K_MAX:
                 flow.seq.append(direction * plen)
@@ -223,9 +253,14 @@ def main():
         labels = defaultdict(int)
         for row in rows:
             labels[row["label"]] += 1
+        # 라벨 규칙 점검: 피해자로 가는 다른 클라이언트 플로우는 benign 으로 들어간다(정책은 문서에 명시)
+        other_victim = sum(1 for r in rows if r["server_ip"] == capture["victim"]
+                           and r["client_ip"] != capture["attacker"])
         summary.append(dict(pcap=name, tcp_packets=tcp_packets, flows=len(flows), labels=dict(labels),
                             skipped=skipped, midstream=sum(r["midstream"] for r in rows),
-                            retransmissions=sum(r["retransmissions"] for r in rows)))
+                            retransmissions=sum(r["retransmissions"] for r in rows),
+                            victim_flows_from_other_clients=other_victim,
+                            pcap_sha256=sha256_file(source / name)))
         print(summary[-1], flush=True)
     out_data.mkdir(parents=True)
     out_report.mkdir(parents=True)
@@ -238,7 +273,16 @@ def main():
         writer = csv.DictWriter(handle, fieldnames=list(report[0]))
         writer.writeheader()
         writer.writerows(report)
+    git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True, encoding="utf-8").strip()
+    git_dirty = bool(subprocess.check_output(["git", "status", "--porcelain", "--", "src", "tests"], cwd=root,
+                                             text=True, encoding="utf-8").strip())
     metadata = dict(run_id=args.run_id, machine=MACHINE, captures=CAPTURES, idle_timeout=IDLE_TIMEOUT,
+                    date=datetime.now(ZoneInfo("Asia/Seoul")).date().isoformat(),
+                    flows_sha256=sha256_file(out_data / "flows.csv"),
+                    code_sha256={"src/track_b/pcap_flows.py": sha256_file(Path(__file__))},
+                    git_commit=git_commit, git_dirty_src_tests=git_dirty,
+                    retransmission_policy="완전히 이미 받은 바이트 구간만 재전송으로 제외(record_segment). "
+                                          "순서가 뒤바뀐 새 구간·일부 겹침은 센다",
                     k_max=K_MAX, ks=list(KS), padding_policy=PADDING_POLICY, summary=summary,
                     model_input_columns=[f"seq_{i}" for i in range(K_MAX)],
                     identifier_columns=["client_ip", "client_port", "server_ip", "pcap", "day", "flow_id"],

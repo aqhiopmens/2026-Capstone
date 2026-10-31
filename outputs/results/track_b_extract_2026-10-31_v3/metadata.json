@@ -1,5 +1,5 @@
 {
-  "run_id": "2026-10-31",
+  "run_id": "2026-10-31_v3",
   "machine": "kyle-win",
   "captures": {
     "Monday_2021-04-12_0611.pcap": {
@@ -16,6 +16,14 @@
     }
   },
   "idle_timeout": 120.0,
+  "date": "2026-10-31",
+  "flows_sha256": "56984701746445874599587ddc8f560ba016c576ca1f1e2592680b25ff314aa1",
+  "code_sha256": {
+    "src/track_b/pcap_flows.py": "53e7f3fbae214e2ed45dc55fe5aa8420c6a8788ee302e9bc9708065c6b67604f"
+  },
+  "git_commit": "0853f11bbc4f6f6efe812e4cb19b2e4309f86a72",
+  "git_dirty_src_tests": false,
+  "retransmission_policy": "완전히 이미 받은 바이트 구간만 재전송으로 제외(record_segment). 순서가 뒤바뀐 새 구간·일부 겹침은 센다",
   "k_max": 30,
   "ks": [
     5,
@@ -38,7 +46,9 @@
         "non_ipv4": 2
       },
       "midstream": 542,
-      "retransmissions": 11572
+      "retransmissions": 858,
+      "victim_flows_from_other_clients": 0,
+      "pcap_sha256": "c2d16c3a3b17f4e2f6ce82c6dbc952af9f67ac1e864e12a02e8731a274fc7ab1"
     },
     {
       "pcap": "Saturday_2021-04-17_0357.pcap",
@@ -53,7 +63,9 @@
         "non_ipv4": 9
       },
       "midstream": 1112,
-      "retransmissions": 24697
+      "retransmissions": 893,
+      "victim_flows_from_other_clients": 0,
+      "pcap_sha256": "9a8000c232b69316ea43ec657489e792db10af9894dc53b4fe28a3fd84115f80"
     }
   ],
   "model_input_columns": [
