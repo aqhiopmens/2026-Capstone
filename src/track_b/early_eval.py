@@ -6,7 +6,7 @@
 작은 트리와 다수 클래스 기준선도 `diagnostics.csv`에 남긴다.
 결과는 '초기 페이로드 패킷 수에 따른 오프라인 분류 성능'이다. 실시간 지연·운영 오탐의 근거가 아니다.
 
-Run: uv run python -m src.track_b.early_eval --flows-run-id 2026-10-31 --run-id <ID>
+Run: uv run python -m src.track_b.early_eval --flows-run-id 2026-10-31_v3 --run-id <ID>
 """
 
 import argparse
@@ -146,6 +146,17 @@ def run_all(flows, workers=2):
     return pd.DataFrame(metrics), pd.DataFrame(subsets), pd.concat(predictions, ignore_index=True)
 
 
+def read_extract_meta(root, flows_run_id, flows_path):
+    """추출 metadata를 읽고 flows.csv의 SHA-256이 기록과 같은지 학습 전에 검사한다."""
+    meta_path = root / "outputs/results" / f"track_b_extract_{flows_run_id}" / "metadata.json"
+    if not flows_path.exists() or not meta_path.exists():
+        raise FileNotFoundError(f"flows 또는 추출 metadata가 없습니다: {flows_path}, {meta_path}")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if sha256_file(flows_path) != meta["flows_sha256"]:
+        raise ValueError(f"flows.csv SHA-256이 추출 metadata와 다릅니다: {flows_path}")
+    return meta
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--flows-run-id", required=True)
@@ -160,6 +171,7 @@ def main():
     data_out = DATA_DIR / "predictions" / f"track_b_early_{args.run_id}"
     if out.exists() or data_out.exists():
         raise FileExistsError("기존 결과를 덮어쓰지 않습니다. 다른 run-id를 지정하세요")
+    extract_meta = read_extract_meta(root, args.flows_run_id, flows_path)
     flows = pd.read_csv(flows_path, keep_default_na=False)
     flows = flows.assign(**{c: pd.to_numeric(flows[c], errors="coerce") for c in
                             [f"t_{i}" for i in range(K_MAX)]})
@@ -173,8 +185,6 @@ def main():
     latency_table(flows).to_csv(out / "latency.csv", index=False)
     diagnostics(flows).to_csv(out / "diagnostics.csv", index=False)
     predictions.to_csv(data_out / "predictions.csv", index=False)
-    extract_meta = json.loads((root / "outputs/results" / f"track_b_extract_{args.flows_run_id}" / "metadata.json")
-                              .read_text(encoding="utf-8"))
     git = lambda *a: subprocess.check_output(["git", *a], cwd=root, text=True, encoding="utf-8").strip()
     (out / "metadata.json").write_text(json.dumps(dict(
         run_id=args.run_id, flows_run_id=args.flows_run_id, flows_sha256=sha256_file(flows_path),

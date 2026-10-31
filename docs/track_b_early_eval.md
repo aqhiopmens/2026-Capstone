@@ -47,7 +47,7 @@
 ## 실행·검증
 
 ```sh
-uv run python -m src.track_b.early_eval --flows-run-id 2026-10-31 --run-id <ID>
+uv run python -m src.track_b.early_eval --flows-run-id 2026-10-31_v3 --run-id <ID>
 uv run python -m unittest discover -s tests -p "test_track_b_early_eval.py"
 ```
 

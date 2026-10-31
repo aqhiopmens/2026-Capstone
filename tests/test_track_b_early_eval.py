@@ -90,5 +90,25 @@ class LatencyTests(unittest.TestCase):
         self.assertAlmostEqual(table.loc[5, "short_fraction"], 2 / 3, places=5)
 
 
+class ExtractMetaTests(unittest.TestCase):
+    def test_hash_mismatch_or_missing_files_stop_before_training(self):
+        import hashlib, json, tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            flows_path = root / "flows.csv"
+            with self.assertRaises(FileNotFoundError):
+                ee.read_extract_meta(root, "r", flows_path)
+            flows_path.write_bytes(b"a,b\n1,2\n")
+            meta_dir = root / "outputs/results/track_b_extract_r"
+            meta_dir.mkdir(parents=True)
+            good = hashlib.sha256(flows_path.read_bytes()).hexdigest()
+            (meta_dir / "metadata.json").write_text(json.dumps(dict(flows_sha256="0" * 64)))
+            with self.assertRaises(ValueError):
+                ee.read_extract_meta(root, "r", flows_path)
+            (meta_dir / "metadata.json").write_text(json.dumps(dict(flows_sha256=good)))
+            self.assertEqual(ee.read_extract_meta(root, "r", flows_path)["flows_sha256"], good)
+
+
 if __name__ == "__main__":
     unittest.main()
