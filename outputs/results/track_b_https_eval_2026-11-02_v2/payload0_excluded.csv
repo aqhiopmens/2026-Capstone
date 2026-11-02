@@ -1,0 +1,5 @@
+day,label,payload0_excluded
+2021-04-11,benign,57
+2021-04-11,bruteforce_https,0
+2021-04-16,benign,359
+2021-04-16,bruteforce_https,2
