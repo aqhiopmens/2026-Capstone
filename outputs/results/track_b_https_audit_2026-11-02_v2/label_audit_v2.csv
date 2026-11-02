@@ -1,0 +1,5 @@
+pcap,label,flows,payload0,key_flows,key_payload_flows,key_payload_nonzero_flows,key_payload_one_row,csv_rows_hit_key_payload,kp_single_agree,kp_unmatched,kp_multi_agree,k_single_agree,k_multi_agree,kp_conflict,k_conflict,k_unmatched
+Friday_2021-04-16_2304.pcap,benign,28074,359,28074,24531,24186,24478,24580,24478.0,3543,53.0,27637.0,437.0,0.0,0.0,0.0
+Friday_2021-04-16_2304.pcap,bruteforce_https,5486,2,5486,5311,5309,0,10623,0.0,175,0.0,0.0,0.0,5311.0,5486.0,0.0
+Sunday_2021-04-11_2154.pcap,benign,4196,57,1713,1436,1409,1432,1440,1432.0,2760,4.0,1699.0,14.0,0.0,0.0,2483.0
+Sunday_2021-04-11_2154.pcap,bruteforce_https,400,0,400,396,396,277,518,277.0,4,0.0,245.0,2.0,119.0,153.0,0.0

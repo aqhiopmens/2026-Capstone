@@ -1,0 +1,11 @@
+pcap,tolerance_s,matched_flows
+Friday_2021-04-16_2304.pcap,0.01,23256
+Friday_2021-04-16_2304.pcap,0.05,23647
+Friday_2021-04-16_2304.pcap,0.1,23761
+Friday_2021-04-16_2304.pcap,1.0,24508
+Friday_2021-04-16_2304.pcap,inf,24531
+Sunday_2021-04-11_2154.pcap,0.01,1317
+Sunday_2021-04-11_2154.pcap,0.05,1356
+Sunday_2021-04-11_2154.pcap,0.1,1403
+Sunday_2021-04-11_2154.pcap,1.0,1433
+Sunday_2021-04-11_2154.pcap,inf,1436
