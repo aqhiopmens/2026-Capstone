@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-11-02_v2",
+  "audit_of": "2026-11-02_v1",
+  "machine": "kyle-win",
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "csv_sha256": "ba09d35269566fd2f269871043b24e7d8e372bc4a47e9c2027729e5ff2e660e0",
+  "flow_status_sha256": "faf32e66c8968d9672f529e0196895546f92d84bc2a4b95331dd501c50ff88cb",
+  "code_sha256": {
+    "src/track_b/https_flows.py": "d3d5291eedc4018bae367bdd5b4900e12c4056603113d70d96af0133f870deb7"
+  },
+  "git_commit": "38d636f1e81defff7e1f53002fa7586dd41f8354",
+  "git_dirty_src_tests": true,
+  "note": "성능 확인 전 라벨 감사 v2. 상태는 양쪽 라벨에 같은 기준(match_status)으로 매김. 모델 입력이 아니다"
+}
