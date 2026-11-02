@@ -1,0 +1,32 @@
+{
+  "complete": true,
+  "run_id": "ood_threshold_2026-10-31_210713_colab",
+  "machine": "colab-cpu",
+  "models": 12,
+  "policies": 48,
+  "thresholds": 36,
+  "probability_rows": 439616,
+  "open_confusion_cells": 9408,
+  "closed_confusion_cells": 2028,
+  "row_files": 24,
+  "pattern_rows": 75504,
+  "verifier_sha256": "bb7dd5a2380edcb377ccc5428dbe560aafe52209cd92793cc5727bb3c8e12c44",
+  "aggregate_sha256": {
+    "pattern_rejection.csv": "755a459e3df08a47233524e9867b8f84bc7f64add0ed27b3332db4c6e174ea8c",
+    "manifest.json": "b4502f271676e63385d08c5929b7bed2f2598e8c5fd9e05d00ee21f3b58ed321",
+    "score_audit.csv": "0ab7b60fc4db52eec20cee93b441ea3df496573677240d9bfc48d1733e92525c",
+    "auc.csv": "02a38207c1159a370acd7bdc371cecf808c406fe3f15f8258764de411d4f218d",
+    "run_metadata.json": "8acf9e48f29d12e249c2ea07b793a09d3bb0e279dc7c7fcafe85bd70933c2467",
+    "pattern_summary.csv": "1fed973f4c37ec3ab4c3be9c5a6f42e2b18f81639e9df02a60e86d7b150062b7",
+    "partition_audit.csv": "e6bb6282d41e372fbcdfed5429d1949e344f3075fbce15fb6fe11e64277649ee",
+    "class_rejection.csv": "060317419febe4d2e7d25fdc40db3797c3577c89dece1da04c7f71138ce3167d",
+    "metrics.csv": "b2e205f375656846fbb498917479951572bd066c0eecc9ea9345b74941068dee",
+    "policy_metrics.csv": "ff457836ac50225efdef356e23ebe8f19260abdc47ffd5f813140e3b22b64bcc",
+    "summary.csv": "e2a4afdd88d380b854f668db9a73c7c31ea2fd7de423c8b7fab822bb70872137",
+    "open_confusion.csv": "0384e26a6bbf2b8887e5e0b017fc7b8c2d6eef09f62ef23b3afc906e89d04462",
+    "paired.csv": "9914274d93d1b7c509a3da10c0901e408dd4acc83c266f776535a1c25bc2b40f",
+    "confusion.csv": "96d729af3f9abb80a878c21f80b3728c885ad378f780aeb1595d69327002e520",
+    "policy_summary.csv": "56558d8140b8c4b0979bd3a4a639a20bd7e7d4f99d2cc690efc16864103036b6",
+    "thresholds.csv": "2c774e04ba95925523d884289cd7687f7b62b322378ba6cc6bc5416d73542501"
+  }
+}

@@ -1,0 +1,13 @@
+date,track,experiment,split,feature_group,model,seed,split_seed,machine,sklearn,lightgbm,torch,note,macro_f1,accuracy,n_features,train_rows,validation_rows,test_rows,unknown_rows,train_seconds
+2026-10-31,A,ood_threshold,random,all,rf,0,0,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.9690155580780814,0.9838991417938786,117,42133,10534,13167,12877,15.917026279000083
+2026-10-31,A,ood_threshold,random,sequence,rf,0,0,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.9170390412247527,0.9557985873775348,30,42133,10534,13167,12877,4.535200530999873
+2026-10-31,A,ood_threshold,random,all,rf,1,1,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.9694090796254305,0.9846586162375636,117,42133,10534,13167,12877,15.588034339999922
+2026-10-31,A,ood_threshold,random,sequence,rf,1,1,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.9130087120788137,0.9538239538239538,30,42133,10534,13167,12877,3.1792538610000065
+2026-10-31,A,ood_threshold,random,all,rf,2,2,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.9707157681413983,0.9849624060150376,117,42133,10534,13167,12877,14.887269993000018
+2026-10-31,A,ood_threshold,random,sequence,rf,2,2,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.9171658057188073,0.9551910078225868,30,42133,10534,13167,12877,3.5545911090000573
+2026-10-31,A,ood_threshold,pattern_group,all,rf,0,0,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.9580933013146465,0.9803167768722129,117,42020,10808,13006,12877,16.33982713400019
+2026-10-31,A,ood_threshold,pattern_group,sequence,rf,0,0,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.883575632507405,0.9450253729048131,30,42020,10808,13006,12877,3.0009142110000084
+2026-10-31,A,ood_threshold,pattern_group,all,rf,1,1,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.9632659407125139,0.9813932031370137,117,42020,10808,13006,12877,15.046144785000024
+2026-10-31,A,ood_threshold,pattern_group,sequence,rf,1,1,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.8838235132945654,0.9434876210979548,30,42020,10808,13006,12877,4.988685859999805
+2026-10-31,A,ood_threshold,pattern_group,all,rf,2,2,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.9628224873639832,0.9823158542211287,117,42019,10809,13006,12877,14.877282168999955
+2026-10-31,A,ood_threshold,pattern_group,sequence,rf,2,2,colab-cpu,1.6.1,4.6.0,,Colab CPU; 독립 교차 검증 후 최종 보고,0.8824149501361382,0.9418729817007535,30,42019,10809,13006,12877,3.3805170450000332
