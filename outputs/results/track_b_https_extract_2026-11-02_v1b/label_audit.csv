@@ -1,0 +1,6 @@
+pcap,label,group,flows,csv_match_1,csv_Benign,payload0,midstream,csv_match_0,csv_none,csv_match_2,csv_mixed,csv_Background,csv_Bruteforce
+Friday_2021-04-16_2304.pcap,benign,other,28074,24478.0,24525.0,359,1381,3543,3543,53,6,0.0,0.0
+Friday_2021-04-16_2304.pcap,bruteforce_https,128.199.242.104,1535,0.0,0.0,2,4,21,21,1514,1514,0.0,0.0
+Friday_2021-04-16_2304.pcap,bruteforce_https,128.199.88.81,3951,0.0,0.0,0,0,154,154,3797,3797,0.0,0.0
+Sunday_2021-04-11_2154.pcap,benign,other,4196,1432.0,1434.0,57,550,2760,2760,4,1,1.0,0.0
+Sunday_2021-04-11_2154.pcap,bruteforce_https,128.199.242.104,400,277.0,0.0,0,0,4,4,119,119,0.0,277.0

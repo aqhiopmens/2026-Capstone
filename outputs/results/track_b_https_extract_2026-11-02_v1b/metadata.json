@@ -1,0 +1,52 @@
+{
+  "run_id": "2026-11-02_v1b",
+  "machine": "kyle-win",
+  "captures": {
+    "Sunday_2021-04-11_2154.pcap": {
+      "day": "2021-04-11",
+      "attacker": "103.255.15.23",
+      "victims": [
+        "128.199.242.104"
+      ]
+    },
+    "Friday_2021-04-16_2304.pcap": {
+      "day": "2021-04-16",
+      "attacker": "103.255.15.23",
+      "victims": [
+        "128.199.242.104",
+        "128.199.88.81"
+      ]
+    }
+  },
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "csv_sha256": "ba09d35269566fd2f269871043b24e7d8e372bc4a47e9c2027729e5ff2e660e0",
+  "code_sha256": {
+    "src/track_b/https_flows.py": "d3d5291eedc4018bae367bdd5b4900e12c4056603113d70d96af0133f870deb7",
+    "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5"
+  },
+  "git_commit": "f5e978514c07415207eb74e9ad94644559d58ba6",
+  "k_max": 30,
+  "summary": [
+    {
+      "pcap": "Sunday_2021-04-11_2154.pcap",
+      "tcp_packets": 591546,
+      "flows": 4596,
+      "skipped": {
+        "non_tcp": 30252,
+        "non_ipv4": 872
+      },
+      "pcap_sha256": "30520b12ce52c33604df4b6f5182723e1db2ecb04eef7c41c7c351a5ea933d4f"
+    },
+    {
+      "pcap": "Friday_2021-04-16_2304.pcap",
+      "tcp_packets": 4510724,
+      "flows": 33560,
+      "skipped": {
+        "non_tcp": 204918,
+        "non_ipv4": 9748
+      },
+      "pcap_sha256": "504764b6dd9e1d914c16f37e1243647a2ea15522601b4821e5e71465453ff53f"
+    }
+  ],
+  "note": "라벨은 캡처 단위 잠정 규칙. csv_match/csv_category는 확인용 감사 열이며 모델 입력이 아니다"
+}
