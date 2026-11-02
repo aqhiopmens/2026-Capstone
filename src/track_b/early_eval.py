@@ -47,17 +47,17 @@ def prefix_features(flows, k, kind):
     raise ValueError("알 수 없는 입력 종류")
 
 
-def subset_scores(actual, predicted):
+def subset_scores(actual, predicted, labels=LABELS):
     """고정 2클래스 기준. 부분집합에 없는 클래스의 recall은 NA, macro-F1은 zero_division=0."""
     actual, predicted = np.asarray(actual), np.asarray(predicted)
     scores = dict(rows=len(actual))
-    for label in LABELS:
+    for label in labels:
         support = int((actual == label).sum())
         scores[f"support_{label}"] = support
         scores[f"recall_{label}"] = (float(((predicted == label) & (actual == label)).sum() / support)
                                      if support else np.nan)
     scores["accuracy"] = float((actual == predicted).mean()) if len(actual) else np.nan
-    scores["macro_f1"] = (float(f1_score(actual, predicted, labels=LABELS, average="macro", zero_division=0))
+    scores["macro_f1"] = (float(f1_score(actual, predicted, labels=list(labels), average="macro", zero_division=0))
                           if len(actual) else np.nan)
     return scores
 
