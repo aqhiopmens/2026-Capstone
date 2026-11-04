@@ -13,7 +13,7 @@
 | 입력 | `seq`(앞 k개 시퀀스), `counts`(앞 k개에서 계산한 4개 요약). k = 5·10·20·30 |
 | 모델·시드 | RF·LightGBM 고정 설정, 시드 0·1·2. 2×2×4×2×2×3 = **192회** |
 | 부분집합 | 같은 저장 시험 예측에서 계산(추가 학습 없음): `reached_k`, `short`, `not_midstream`, `benign_csv_confirmed`, `benign_csv_unmatched`, `attack_242104`, `attack_88_81`. 한 클래스가 없으면 macro-F1을 비움 |
-| 재현 | `uv run python -m src.track_b.https_eval --flows-run-id 2026-11-02_v1 --audit-run-id 2026-11-02_v2 --run-id <ID>`. 결과 `outputs/results/track_b_https_eval_2026-11-02_v2/`, 행별 예측은 DATA_DIR |
+| 재현 | `uv run python -m src.track_b.https_eval --flows-run-id 2026-11-02_v1 --audit-run-id 2026-11-02_v2 --run-id <ID>`. Windows 결과 `outputs/results/track_b_https_eval_2026-11-02_v2/`, Colab 최종 `outputs/results/track_b_https_eval_2026-11-04_colab/`, 행별 예측은 DATA_DIR |
 
 ## 결과 (macro-F1 3시드 평균, 시험 행에 상한 없음)
 
@@ -44,4 +44,22 @@ LightGBM과 전체 표는 `summary.csv`. 정상 specificity(CSV 일치 24,186·1
 - 라벨은 잠정 캡처 규칙이다. 공격 04-16 .88.81은 CSV와 상충(Bruteforce+Benign 짝 행)이라 확인 불가, 정상 04-11은 65.8%가 CSV 미매칭이다.
 - 날짜·피해자 교락. 04-11 공격은 .242.104 하나, 시험 공격이 400개뿐인 방향이 있다.
 - 시드는 모델 시드만 바꾸고 분할은 날짜라 고정이다. 두 pcap만 쓴 결과이며 환경(Mac/Colab) 교차 재현은 하지 않았다.
-- 이 수치는 김강민 Windows 로컬 예비 결과이다. Mac 저장 예측 독립 재계산(예측 3,433,200행, 192회 점수·부분집합)은 집계 검증이며 불일치 0건이다. 모델 학습·예측 생성의 교차 환경 재현은 하지 않았고 Colab 최종 실행과도 구분한다(최종 수치는 Colab이라는 기존 원칙).
+- 최종 수치는 Colab 실행([아래](#colab-최종-실행-2026-11-04))이다. Windows 로컬 실행과 점수가 모두 같다. Mac에서 RF/LGBM 재학습·pcap 재추출은 하지 않았고, 서은빈 측 Codex는 Colab 저장 결과를 Mac에서 독립 재계산해 Windows와 짝 비교했다.
+- 라벨 정답 확정, 날짜·피해자 분리는 현재 자료(pcap 2개, 상충하는 CSV)로 불가능하다. 같이 받은 `ground-truth.zip`은 라벨 파일이 아니라 다른 날짜의 익명화 pcap이다.
+
+## 라벨 감사 요약
+
+[PR #34](https://github.com/aqhiopmens/2026-Capstone/pull/34)에서 성능을 보기 전에 공격·정상 라벨을 CSV(ALLFLOWMETER)와 같은 기준으로 대조했다(키 = 클라이언트 IP·포트·서버 IP, 페이로드 패킷 수 일치). 공격 04-16은 단일 일치 0건이다(연결마다 Bruteforce+Benign 짝 행, 상충), 공격 04-11은 277/400만 상충 없이 확인된다. 정상은 상충 0건이며 04-11의 65.8%, 04-16의 12.6%가 CSV에 없다. 그래서 라벨은 캡처 단위 잠정 규칙이고 CSV 일치 정상 부분집합은 FPR·specificity와 분모만 읽는다. 이전에 보고한 정상 매칭 수 1,346 / 23,944는 같은 기준에서 재현되지 않아 폐기하고 1,436 / 24,531을 쓴다.
+
+## Colab 최종 실행 (2026-11-04)
+
+| 항목 | 내용 |
+|---|---|
+| 실행자·환경 | 김강민 본인 Colab, CPU 런타임 2026.07, Python 3.12.13, sklearn 1.6.1, LightGBM 4.6.0, numpy 2.0.2, pandas 2.2.2, 2코어. 실행 전 버전·GPU 미사용·파일 SHA·테스트 54개를 검사하고 하나라도 실패하면 시작하지 않는다 |
+| 출처 | 소스 `main` `11733ec`의 41개 파일 묶음(SHA-256 `f7910921836325711555a73d22dcdf7a4382c2d5bb21fb718955934789a766f1`), Colab snapshot 초기 커밋 `c4d3bea…`이 결과 metadata의 `git_commit`이다 |
+| 입력 | flows.csv `1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b`, flow_status.csv `faf32e66c8968d9672f529e0196895546f92d84bc2a4b95331dd501c50ff88cb` |
+| 산출물 | 결과 ZIP `d72bfd25e54a98319f184a28927df3015f5bf3b9185939e54fe739df77524a35`, 행별 예측 `f2536ef0b30aed9e163c97df8166c8d178289d421b8b3f19546e33b43dfe4317`(1,182,751,187 B, gzip 사본 `d3ef1e84…`)은 Drive `predictions/track_b_https_eval_2026-11-04_colab` |
+| Windows와 비교 | 192회 macro-F1·정확도 차이 최대 0.0, summary 64·subsets 1,536·diagnostics 36·latency 16·payload0 4 모두 차이 0. 예측 3,433,200행은 정답·예측 라벨·피해자·payload 수·midstream·CSV 상태 불일치 0, `max_probability`만 3행이 최대 1.1e-16 다르다. 예측 파일의 바이트 SHA는 machine·note 문자열이 달라 다르다 |
+| Codex 검증 | Mac에서 저장 예측·ZIP을 별도 로직으로 재계산해 불일치 0건(예측 3,433,200행, 192회, 1,536 부분집합, 64 요약, 진단 36행) |
+
+**노트북 수정과 한계.** 런처 노트는 모델·평가 로직 없이 `.py`를 호출한다. 실행 중 두 셀을 고쳤다. 셀 4(테스트): Colab에 다른 `tests` 패키지가 있어 `tests.test_*` 호출이 'No module named'로 학습 전에 실패해 파일별 `unittest discover`와 합계 54개 확인으로 바꿨다. 셀 6(결과 확인): `git_dirty_src_tests is False` 조건이 테스트가 만든 `__pycache__` 미추적 파일 때문에 걸려, 추적 파일 변경 없음 + `__pycache__`와 결과 폴더만 허용하는 조건으로 바꾸고 run_info에 `git_dirty_src_tests_recorded`·`dirty_reason`을 추가했다. `runs == 192`는 그대로다. 결과 metadata의 `git_dirty_src_tests=true`는 이 때문이며 코드 동일성은 파일별 SHA(`code_sha256`)와 upstream 대조로 본다. 변경 전 노트(SHA `2e3621eca8a1ab8829bf071abaa1ae6d9d551a7c39ba87ae5406d84d4016d7e3`)는 Colab 저장으로 덮어써졌으나, 생성 스크립트로 같은 SHA로 복원해 최종 노트(SHA `633b0672b98f221589f5584cd9085cf9b592fba03e27de6b5f4698aff4266fcf`)와 셀 단위로 비교했고 셀 4와 6만 다름을 확인했다. 노트북 원본은 개인 런처라 Git에는 넣지 않고 Drive `colab_launch/`에 둔다.

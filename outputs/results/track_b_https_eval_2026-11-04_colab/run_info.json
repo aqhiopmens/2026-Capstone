@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-11-04_colab",
+  "machine": "colab-cpu",
+  "python": "3.12.13 (main, Mar  4 2026, 09:23:07) [GCC 11.4.0]",
+  "upstream": "11733ec8f27c1bae29f82d7fdfdb1ecb679c9a85",
+  "bundle_sha256": "f7910921836325711555a73d22dcdf7a4382c2d5bb21fb718955934789a766f1",
+  "results_zip": "https_2026-11-04_colab.zip",
+  "results_zip_sha256": "d72bfd25e54a98319f184a28927df3015f5bf3b9185939e54fe739df77524a35",
+  "predictions_sha256": "f2536ef0b30aed9e163c97df8166c8d178289d421b8b3f19546e33b43dfe4317",
+  "metadata_predictions_sha256": "f2536ef0b30aed9e163c97df8166c8d178289d421b8b3f19546e33b43dfe4317",
+  "git_dirty_src_tests_recorded": true,
+  "dirty_reason": "__pycache__ 미추적 파일만(테스트 실행 부산물), 추적 파일 변경 없음",
+  "complete": true
+}
