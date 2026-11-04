@@ -89,7 +89,7 @@ def diagnostics(flows):
     return pd.DataFrame(rows)
 
 
-def run_all(flows, workers=2):
+def run_all(flows, workers=2, kinds=FEATURE_KINDS, features=prefix_features, experiment="https_early_k"):
     from src.common.config import MACHINE
 
     flows = flows.reset_index(drop=True)
@@ -104,13 +104,13 @@ def run_all(flows, workers=2):
             split = f"time_{train_day[5:].replace('-', '')}to{test_day[5:].replace('-', '')}_{scope}"
             partitions = partitions_for(flows, train_day, test_day, scope)
             for k in KS:
-                for kind in FEATURE_KINDS:
-                    x = prefix_features(flows, k, kind)
+                for kind in kinds:
+                    x = features(flows, k, kind)
                     for model in MODELS:
                         for seed in SEEDS:
                             result = run_classification(x, flows.label, partitions, known_labels=LABELS,
                                                         model_name=model, seed=seed, split=split, workers=workers)
-                            identity = dict(date=today, track="B", experiment="https_early_k", split=split,
+                            identity = dict(date=today, track="B", experiment=experiment, split=split,
                                             feature_group=f"{kind}_k{k}", model=model, machine=MACHINE,
                                             sklearn=version("scikit-learn"), lightgbm=version("lightgbm"),
                                             torch="", seed=seed, split_seed=0, k=k, feature_kind=kind,
