@@ -43,7 +43,7 @@ LightGBM과 전체 표는 `summary.csv`. 정상 specificity(CSV 일치 24,186·1
 
 - 라벨은 잠정 캡처 규칙이다. 공격 04-16 .88.81은 CSV와 상충(Bruteforce+Benign 짝 행)이라 확인 불가, 정상 04-11은 65.8%가 CSV 미매칭이다.
 - 날짜·피해자 교락. 04-11 공격은 .242.104 하나, 시험 공격이 400개뿐인 방향이 있다.
-- 시드는 모델 시드만 바꾸고 분할은 날짜라 고정이다. 두 pcap만 쓴 결과이며 환경(Mac/Colab) 교차 재현은 하지 않았다.
+- 시드는 모델 시드만 바꾸고 분할은 날짜라 고정이다. 두 pcap만 쓴 결과이다. 환경 교차 재현은 Windows–Colab의 학습·예측 생성 짝 비교로 확인했고(아래), Mac은 저장 결과 재계산만 했다(Mac 재학습·pcap 재추출 없음).
 - 최종 수치는 Colab 실행([아래](#colab-최종-실행-2026-11-04))이다. Windows 로컬 실행과 점수가 모두 같다. Mac에서 RF/LGBM 재학습·pcap 재추출은 하지 않았고, 서은빈 측 Codex는 Colab 저장 결과를 Mac에서 독립 재계산해 Windows와 짝 비교했다.
 - 라벨 정답 확정, 날짜·피해자 분리는 현재 자료(pcap 2개, 상충하는 CSV)로 불가능하다. 같이 받은 `ground-truth.zip`은 라벨 파일이 아니라 다른 날짜의 익명화 pcap이다.
 
@@ -59,7 +59,7 @@ LightGBM과 전체 표는 `summary.csv`. 정상 specificity(CSV 일치 24,186·1
 | 출처 | 소스 `main` `11733ec`의 41개 파일 묶음(SHA-256 `f7910921836325711555a73d22dcdf7a4382c2d5bb21fb718955934789a766f1`), Colab snapshot 초기 커밋 `c4d3bea…`이 결과 metadata의 `git_commit`이다 |
 | 입력 | flows.csv `1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b`, flow_status.csv `faf32e66c8968d9672f529e0196895546f92d84bc2a4b95331dd501c50ff88cb` |
 | 산출물 | 결과 ZIP `d72bfd25e54a98319f184a28927df3015f5bf3b9185939e54fe739df77524a35`, 행별 예측 `f2536ef0b30aed9e163c97df8166c8d178289d421b8b3f19546e33b43dfe4317`(1,182,751,187 B, gzip 사본 `d3ef1e84…`)은 Drive `predictions/track_b_https_eval_2026-11-04_colab` |
-| Windows와 비교 | 192회 macro-F1·정확도 차이 최대 0.0, summary 64·subsets 1,536·diagnostics 36·latency 16·payload0 4 모두 차이 0. 예측 3,433,200행은 정답·예측 라벨·피해자·payload 수·midstream·CSV 상태 불일치 0, `max_probability`만 3행이 최대 1.1e-16 다르다. 예측 파일의 바이트 SHA는 machine·note 문자열이 달라 다르다 |
+| Windows와 비교 | 192회 macro-F1·정확도 차이 최대 0.0, summary 64·subsets 1,536·diagnostics 36·latency 16·payload0 4 모두 차이 0. 예측 3,433,200행은 정답·예측 라벨·피해자·payload 수·midstream·CSV 상태 불일치 0, `max_probability`만 3행이 최대 1.1e-16 다르다. 예측 파일의 바이트 SHA가 다른 이유로 확인된 것은 행마다 다른 `machine`·`note` 문자열, 실행 날짜 열, `max_probability` 3행의 1.1e-16 차이이다. 전체 바이트 차이를 이 요인들로 분해해 확인한 것은 아니다 |
 | Codex 검증 | Mac에서 저장 예측·ZIP을 별도 로직으로 재계산해 불일치 0건(예측 3,433,200행, 192회, 1,536 부분집합, 64 요약, 진단 36행) |
 
 **노트북 수정과 한계.** 런처 노트는 모델·평가 로직 없이 `.py`를 호출한다. 실행 중 두 셀을 고쳤다. 셀 4(테스트): Colab에 다른 `tests` 패키지가 있어 `tests.test_*` 호출이 'No module named'로 학습 전에 실패해 파일별 `unittest discover`와 합계 54개 확인으로 바꿨다. 셀 6(결과 확인): `git_dirty_src_tests is False` 조건이 테스트가 만든 `__pycache__` 미추적 파일 때문에 걸려, 추적 파일 변경 없음 + `__pycache__`와 결과 폴더만 허용하는 조건으로 바꾸고 run_info에 `git_dirty_src_tests_recorded`·`dirty_reason`을 추가했다. `runs == 192`는 그대로다. 결과 metadata의 `git_dirty_src_tests=true`는 이 때문이며 코드 동일성은 파일별 SHA(`code_sha256`)와 upstream 대조로 본다. 변경 전 노트(SHA `2e3621eca8a1ab8829bf071abaa1ae6d9d551a7c39ba87ae5406d84d4016d7e3`)는 Colab 저장으로 덮어써졌으나, 생성 스크립트로 같은 SHA로 복원해 최종 노트(SHA `633b0672b98f221589f5584cd9085cf9b592fba03e27de6b5f4698aff4266fcf`)와 셀 단위로 비교했고 셀 4와 6만 다름을 확인했다. 노트북 원본은 개인 런처라 Git에는 넣지 않고 Drive `colab_launch/`에 둔다.
