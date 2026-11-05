@@ -1,6 +1,6 @@
 """계획서 성능 목표 측정(안건 7 확정안): 10MiB pcap 처리 시간과 플로우 1건 판정 지연. 정확도는 재지 않는다.
 
-목표 1: 기존 pcap을 패킷 경계에서 10MiB 이상이 되는 지점까지 잘라 쓰고, [pcap 읽기·플로우 조립 + 앞 k개 특징 생성 + 전체 플로우 일괄 판정]의
+목표 1: 기존 pcap을 패킷 경계에서 10MiB 이상이 되는 지점까지 잘라 쓰고, 조합마다 [파일 읽기 시작→조립→payload 필터→특징 생성→predict 종료] 연속 타이머의
 벽시계 시간을 워밍업 1회 뒤 5회 잰다. 판정은 시료별 5회 중 최댓값 <= 30초(중앙값은 참고).
 목표 2: 앞 k개 페이로드 패킷이 도달한 플로우 하나의 [특징 벡터 생성 + 단건 predict](n_jobs=1) 시간. 도달 대기·pcap 파싱은 제외하고 별도 보고.
 플로우 1,000개를 고정 시드로 뽑고(도달 플로우가 적으면 전수) 워밍업 10회 뒤 중앙값·p95·p99·최댓값·10ms 초과 건수를 낸다. 판정은 p95 <= 10ms.
@@ -89,25 +89,39 @@ def train_models(flows_csv, seed=0):
 
 
 def measure_sample(path, models, runs=RUNS, warmup=WARMUP_RUNS):
-    """한 시료의 단계별 시간. 조립은 모델·k와 무관하므로 실행마다 한 번 재고, 모델·k별 특징·판정 시간을 더해 총 시간을 만든다."""
+    """조합(모델·k·n_jobs)마다 [파일 읽기 시작 -> 플로우 조립 -> payload 필터 -> 특징 생성 -> predict 종료]를 하나의 연속 타이머로 잰다(t_total_s).
+
+    단계별 시간은 같은 실행 안의 체크포인트 차이이며 진단용이다. 조립을 조합마다 새로 하므로 단계 사이 비용이 총 시간에 포함된다.
+    """
     rows = []
     for run in range(warmup + runs):
-        t0 = time.perf_counter()
-        flows, skipped, tcp_packets = assemble_flows(path)
-        t_asm = time.perf_counter() - t0
-        flows = [f for f in flows if f.payload_packets > 0]
         for (name, k), model in models.items():
             for jobs in (1, -1):
                 model.set_params(n_jobs=jobs)
+                t0 = time.perf_counter()
+                flows, skipped, tcp_packets = assemble_flows(path)
                 t1 = time.perf_counter()
+                flows = [f for f in flows if f.payload_packets > 0]
                 x = pd.DataFrame([prefix_input(f, k) for f in flows], columns=SEQ_COLUMNS)
-                t_feat = time.perf_counter() - t1
                 t2 = time.perf_counter()
                 model.predict(x)
-                t_pred = time.perf_counter() - t2
+                t3 = time.perf_counter()
                 rows.append(dict(run=run, warmup=int(run < warmup), model=name, k=k, n_jobs=jobs, flows=len(flows),
-                                 t_assemble_s=t_asm, t_features_s=t_feat, t_predict_s=t_pred, t_total_s=t_asm + t_feat + t_pred))
+                                 t_assemble_s=t1 - t0, t_filter_features_s=t2 - t1, t_predict_s=t3 - t2, t_total_s=t3 - t0))
     return pd.DataFrame(rows), flows, tcp_packets
+
+
+def count_records(path):
+    """classic libpcap 파일의 패킷 레코드 수(TCP 외 포함)."""
+    n = 0
+    with open(path, "rb") as f:
+        f.read(24)
+        while True:
+            rec = f.read(16)
+            if len(rec) < 16:
+                return n
+            f.seek(struct.unpack_from("<I", rec, 8)[0], 1)
+            n += 1
 
 
 def main():
@@ -132,14 +146,14 @@ def main():
             cut_pcap(DATA_DIR / "raw" / "hikari" / name, cut)
         runs, flows, tcp_packets = measure_sample(cut, models)
         all_flows, skipped, _ = assemble_flows(cut)
-        stats.append(dict(sample=name, bytes=cut.stat().st_size, sha256=sha256_file(cut), tcp_packets=tcp_packets,
-                          flows_payload_gt0=len(flows), flows_all_443=len(all_flows),
-                          midstream_at_start=sum(f.midstream for f in all_flows),
-                          not_closed_at_end=sum((not f.closed) for f in all_flows), skipped=json.dumps(skipped)))
+        stats.append(dict(sample=name, bytes=cut.stat().st_size, sha256=sha256_file(cut), packet_records=count_records(cut),
+                          tcp_packets_processed=tcp_packets, flows_payload_gt0=len(flows), flows_all_443=len(all_flows),
+                          first_observed_not_client_syn=sum(f.midstream for f in all_flows),
+                          no_fin_rst_in_sample=sum((not f.closed) for f in all_flows), skipped=json.dumps(skipped)))
         runs_all.append(runs.assign(sample=name))
         for k in KS:
             reached = [f for f in flows if f.payload_packets >= k]
-            pool[k].extend(reached)
+            pool[k].extend((name, f) for f in reached)
             stats[-1][f"flows_reached_k{k}"] = len(reached)
             stats[-1][f"flows_short_k{k}"] = len(flows) - len(reached)
     runs_df = pd.concat(runs_all, ignore_index=True)
@@ -147,16 +161,20 @@ def main():
     total = (meas.groupby(["sample", "model", "k", "n_jobs"]).t_total_s.agg(median="median", max="max").reset_index()
              .assign(pass_30s_max=lambda d: d["max"] <= LIMIT_S))
     rng = np.random.default_rng(SINGLE_SEED)
-    single = []
+    single, single_rows = [], []
     for k in KS:
         flows_k = pool[k]
-        pick = [flows_k[i] for i in (rng.permutation(len(flows_k))[:SINGLE_N] if len(flows_k) > SINGLE_N else range(len(flows_k)))]
+        pick_pairs = [flows_k[i] for i in (rng.permutation(len(flows_k))[:SINGLE_N] if len(flows_k) > SINGLE_N else range(len(flows_k)))]
+        pick = [f for _, f in pick_pairs]
         wait = np.array([f.times[k - 1] for f in pick])
         for (name, kk), model in models.items():
             if kk != k:
                 continue
             model.set_params(n_jobs=1)
             ms = single_latency(model, pick, k)
+            single_rows.extend(dict(model=name, k=k, sample=sm, client_ip=f.client_ip, client_port=f.client_port, server_ip=f.server_ip,
+                                    start_ts=round(f.start_ts, 6), single_ms=float(m), wait_until_kth_packet_s=float(w))
+                               for (sm, f), m, w in zip(pick_pairs, ms, wait))
             single.append(dict(model=name, k=k, n=len(pick), median_ms=pctl(ms, 50), p95_ms=pctl(ms, 95), p99_ms=pctl(ms, 99),
                                max_ms=float(ms.max()), over_10ms=int((ms > LIMIT_MS).sum()), pass_p95=pctl(ms, 95) <= LIMIT_MS,
                                wait_until_kth_packet_median_s=float(np.median(wait)), wait_until_kth_packet_p95_s=pctl(wait, 95)))
@@ -165,15 +183,19 @@ def main():
     runs_df.to_csv(out / "runs.csv", index=False)
     total.to_csv(out / "total_time.csv", index=False)
     pd.DataFrame(single).to_csv(out / "single_flow.csv", index=False)
+    rows_dir = DATA_DIR / "perf_runs" / f"track_b_perf_{args.run_id}"  # 행별 측정 자료는 Git 밖(DATA_DIR/Drive)
+    rows_dir.mkdir(parents=True)
+    pd.DataFrame(single_rows).to_csv(rows_dir / "single_flow_rows.csv.gz", index=False, float_format="%.9g")
     env = run_environment(root)
-    env.update(cpu=platform.processor(), cpu_count=__import__("os").cpu_count(), model_n_jobs_single=1, model_n_jobs_batch=[1, -1],
+    env.update(cpu=platform.processor(), logical_cpu_count=__import__("os").cpu_count(), single_predict_n_jobs_setting=1, batch_predict_n_jobs_settings=[1, -1],
                train_rows=train_rows, train_label_counts=train_labels)
     (out / "metadata.json").write_text(json.dumps(dict(
         run_id=args.run_id, flows_run_id=args.flows_run_id, runs=RUNS, warmup_runs=WARMUP_RUNS, single_n=SINGLE_N, single_warmup=SINGLE_WARMUP,
         single_seed=SINGLE_SEED, limit_total_s=LIMIT_S, limit_single_p95_ms=LIMIT_MS, ks=list(KS), models=list(MODELS), environment=env,
+        single_rows_file=dict(path=f"perf_runs/track_b_perf_{args.run_id}/single_flow_rows.csv.gz", sha256=sha256_file(rows_dir / "single_flow_rows.csv.gz")),
         flows_sha256=sha256_file(flows_csv), code_sha256={"src/track_b/perf_measure.py": sha256_file(Path(__file__)),
                                                          "src/track_b/pcap_flows.py": sha256_file(root / "src/track_b/pcap_flows.py")},
-        note="모델 로드·학습은 측정 구간 밖. 판정 지연 = 앞 k개 도달 후 [특징 생성+단건 predict]; 도달 대기·pcap 파싱은 별도. "
+        note="총 시간 = 조합마다 [파일 읽기 시작→조립→payload 필터→특징 생성→predict 종료] 연속 타이머. 모델 로드·학습은 측정 구간 밖. 판정 지연 = 앞 k개 도달 후 [특징 생성+단건 predict]; 도달 대기·pcap 파싱은 별도. "
              "시료는 3개 pcap 앞부분 10MiB라 대표성이 제한적이며 서비스 지연(대시보드·네트워크)은 측정하지 않는다. 환경 의존 값"),
         ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     pd.set_option("display.width", 250)

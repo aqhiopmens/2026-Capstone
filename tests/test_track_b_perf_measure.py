@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from src.track_b.perf_measure import cut_pcap, pctl, single_latency
+from src.track_b.perf_measure import count_records, cut_pcap, pctl, single_latency
 
 
 def fake_pcap(path, sizes):
@@ -28,6 +28,7 @@ class PerfTests(unittest.TestCase):
             self.assertEqual(dst.stat().st_size, size)
             size, packets = cut_pcap(src, dst, min_bytes=10**9)
             self.assertEqual(packets, 4)  # 파일이 임계보다 작으면 전체
+            self.assertEqual(count_records(src), 4)  # 패킷 레코드 수(TCP 여부와 무관)
 
     def test_single_latency_times_each_flow_and_percentile(self):
         calls = []
