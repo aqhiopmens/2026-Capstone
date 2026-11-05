@@ -106,5 +106,12 @@
   "code_sha256": {
     "src/track_b/https_unseen.py": "46d86915c0df5c60a192a66da2eed64398f52b3f8ac4660d0705409c522bd37f"
   },
-  "note": "oracle 지원 N개 라벨(사람이 발견한 결과가 아님). 04-17 검증 문턱을 04-16에 적용하는 오프라인 전이 평가. 모든 N에 같은 시험 행. 탐색적 결과이며 같은 캠페인 반복 요청을 외운 효과가 일반화 근거가 아니다"
+  "note": "oracle 지원 N개 라벨(사람이 발견한 결과가 아님). 04-17 검증 문턱을 04-16에 적용하는 오프라인 전이 평가. 모든 N에 같은 시험 행. 탐색적 결과이며 같은 캠페인 반복 요청을 외운 효과가 일반화 근거가 아니다",
+  "posthoc_metrics": {
+    "file": "metrics_per_condition.csv",
+    "computed_from": "predictions\\track_b_https_b1_2026-11-05_v3\\b1_test_predictions.csv.gz",
+    "predictions_sha256": "fe9279d428ef00182ad14b19ae48b8f53bb40076d3e22920eb1aa2da9eb05c3a",
+    "note": "재학습 없이 저장 예측에서 계산(양성=두 공격 피해자)",
+    "code_sha256": "0e85bac430dda6024ac42b91efb47d546cd589e926fd8ed7c60cd7f0b888427c"
+  }
 }

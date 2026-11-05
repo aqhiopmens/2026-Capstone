@@ -36,7 +36,7 @@
 
 ## 4. 결론과 한계
 
-- 기존 지도 모델(RF/LGBM)의 저장 점수 탐색 진단에서 처음 보는 피해자 .88.81은 정상과 잘 구분되지 않았고(§1은 pooled 탐색 관찰), 명시한 IsolationForest 조건(§2)에서는 표시율이 낮았다. 같은 캠페인의 공격 N개(5~50개)를 알려 주면 recall이 크게 오른다(seq k=10 기준 0.49~0.96, 정상 오탐 0.04% 이하).
+- 명시한 IsolationForest 조건(§2: 04-17 검증 문턱, 2% 예산, seq/logb k=5·10)에서 처음 보는 피해자 .88.81의 표시율이 낮았다. §1의 pooled 진단과 그 판정은 이 결론의 근거가 아니다. 같은 캠페인의 공격 N개(5~50개)를 알려 주면 recall이 크게 오른다(seq k=10 기준 0.49~0.96, 정상 오탐 0.04% 이하).
 - 이 효과는 **같은 도구가 거의 같은 요청을 반복하는 한 캠페인** 안의 결과이며 다른 공격 유형·도구로의 일반화 근거가 아니다. 공격자는 유형마다 호스트 1개(NAT 뒤 단일 호스트)이고 라벨은 잠정이다.
 - 04-17 검증으로 04-16 시험의 문턱을 정한 것은 미래 자료를 쓴 오프라인 전이 평가이며 실제 과거→미래 운영 평가가 아니다. 04-17 정상 4,455행이 표본 간 의존을 가져 단순 신뢰구간으로 불확실성을 설명하지 못한다.
 - 새 pcap(2022 HTTPS 등)으로 다른 날짜·피해자를 시험하는 단계(B2), Colab 재실행, Mac 재학습은 하지 않았다. 결과는 Windows 탐색 결과다.
@@ -45,5 +45,5 @@
 
 - `uv run python -m src.track_b.https_unseen diag|suspect|b1 ...`, 코드 `src/track_b/https_unseen.py`. **최종 결과는 `track_b_https_suspect_2026-11-05_v3`, `track_b_https_b1_2026-11-05_v3`**(깨끗한 커밋 `47cc4a0`에서 실행)이며 `track_b_https_unseen_diag_2026-11-05_v1`은 §1의 진단이다. v1(suspect·b1)은 B1 시험을 "창 밖(앞+뒤)"으로 잘못 정의했고, v2는 시험은 맞지만 실행 환경 기록이 없어 v3가 대체한다(v3 점수는 v2와 같다).
 - **실행 출처**: v3 metadata의 `environment`에 실행 당시 머신(`kyle-win`), Python 3.12.14, scikit-learn 1.6.1·numpy 2.0.2·pandas 2.2.2·lightgbm 4.6.0, 코드 git SHA와 clean 여부, 의존 소스 8개 SHA, RF·IsolationForest 전체 파라미터를 기록했다. v1·v2·진단 v1은 이 기록이 없어 실행 당시의 환경·clean 여부를 소급 증명하지 않는다(복원 가능한 범위: 입력 SHA, 코드 SHA, 같은 코드의 재실행 점수 일치).
-- **미기록**: B1의 accuracy·macro-F1·혼동 건수는 저장하지 않았다(행별 예측으로 후속 계산 가능).
+- **B1 accuracy·macro-F1·혼동 건수**는 실행 때 저장하지 않았고, 저장 예측에서 재학습 없이 계산했다(`https_unseen b1-metrics`, 결과 `metrics_per_condition.csv` 60조건의 TP/TN/FP/FN·accuracy·macro-F1, `metrics_summary.csv` 시드 평균, metadata `posthoc_metrics`에 예측 SHA 기록). 양성 = 두 공격 피해자(.88.81 + .242.104), 공통 시험 31,007행 전체. seq k=10의 시드 평균 macro-F1은 N=0·5·10·20·50에서 0.685·0.869·0.933·0.958·0.990, accuracy는 0.879·0.938·0.966·0.978·0.994이며 Codex의 독립 계산과 일치한다.
 - 행별 점수·예측·지원 행 역할과 **공통 시험 행 ID(`common_test_rows.csv`, 약 3.1만 행)는 Git에 넣지 않고** DATA_DIR와 Drive `predictions/track_b_https_suspect_2026-11-05_v3`, `track_b_https_b1_2026-11-05_v3`에 둔다. 저장소에는 행수·정의·원본/LF 정규화 SHA(metadata)만 남긴다.
