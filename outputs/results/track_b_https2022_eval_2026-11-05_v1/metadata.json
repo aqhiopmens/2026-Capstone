@@ -121,5 +121,12 @@
   "code_sha256": {
     "src/track_b/https_2022.py": "b238fcb67626469eea279a5f3106a7bd6705bea421ff6183d884d185b09731b1"
   },
-  "note": "안건 6 확정안: 문턱·IsolationForest 없음, RF 기본 predict, 정상 지원 추가 없음. oracle 지원 N개 라벨(같은 캡처 안 효과, 일반화 근거 아님). FP 구간은 독립 시행 가정의 참고값이며 환경 간 오탐 불확실성은 추정하지 못한다. 공격자 1명·잠정 라벨 기반 탐색적 결과"
+  "note": "안건 6 확정안: 문턱·IsolationForest 없음, RF 기본 predict, 정상 지원 추가 없음. oracle 지원 N개 라벨(같은 캡처 안 효과, 일반화 근거 아님). FP 구간은 독립 시행 가정의 참고값이며 환경 간 오탐 불확실성은 추정하지 못한다. 공격자 1명·잠정 라벨 기반 탐색적 결과",
+  "posthoc_metrics": {
+    "file": "metrics_per_condition.csv",
+    "computed_from": "predictions\\track_b_https2022_eval_2026-11-05_v1\\eval2022_predictions.csv.gz",
+    "predictions_sha256": "388822f792ecdcbb19926f1f39af79566891cde25cea357de11b6ac5d26e069b",
+    "code_sha256": "283fb933d6f7dd6f1cfda83547d9b75ee4d6394c72a1a531265a5c988989337f",
+    "note": "재학습 없이 저장 예측에서 계산(공통 시험 행, 양성=공격)"
+  }
 }
