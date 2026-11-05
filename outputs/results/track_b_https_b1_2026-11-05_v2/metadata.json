@@ -1,0 +1,53 @@
+{
+  "run_id": "2026-11-05_v2",
+  "flows_run_id": "2026-11-02_v1",
+  "xml_flows_run_id": "2026-10-31_v3",
+  "ns": [
+    0,
+    5,
+    10,
+    20,
+    50
+  ],
+  "ks": [
+    5,
+    10
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "inputs": [
+    "seq",
+    "logb"
+  ],
+  "train_day": "2021-04-11",
+  "bundle_gap_s": 5.0,
+  "window_after_s": 600.0,
+  "window": [
+    1618589282.516307,
+    1618589964.4865732
+  ],
+  "common_test_rows": 31007,
+  "common_test_rows_sha256": "1fbb37b9463b9ff410a6242bfcdac371f1118d0d817b8f26e7c31e979123de60",
+  "common_test_rows_sha256_lf": "c3fa012ae59ef8065195e4840ce88f283f555969fdbbdfe5544914ecbcaa5889",
+  "test_definition": "04-16 flows with start_ts > window_end (합의한 창 이후). 창 시작 전 행과 창 안 행은 제외",
+  "before_window_rows_excluded": 105,
+  "predictions_files": {
+    "b1_support_roles.csv.gz": "f5e3a93ef88fc718d73ae33491953c5fa788310db2312ad291945b4ea7aacb86",
+    "b1_test_predictions.csv.gz": "28edabc1c5020498b4dec9af02281e8e1f80d397973dcd97a3a1c3ea026675d8"
+  },
+  "excluded_88_81_attacks": 208,
+  "window_benign_rows": 1808,
+  "boundary_cross": {
+    "start_before_w0_and_end_ge_w0": 36,
+    "start_le_w1_and_end_gt_w1": 16
+  },
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "xml_flows_sha256": "56984701746445874599587ddc8f560ba016c576ca1f1e2592680b25ff314aa1",
+  "code_sha256": {
+    "src/track_b/https_unseen.py": "7cc2fedebb741e8f0297ae335fac3735e404b78d10e951980a7d638b824186d4"
+  },
+  "note": "oracle 지원 N개 라벨(사람이 발견한 결과가 아님). 04-17 검증 문턱을 04-16에 적용하는 오프라인 전이 평가. 모든 N에 같은 시험 행. 탐색적 결과이며 같은 캠페인 반복 요청을 외운 효과가 일반화 근거가 아니다"
+}

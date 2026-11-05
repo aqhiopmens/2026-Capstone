@@ -1,0 +1,46 @@
+{
+  "run_id": "2026-11-05_v1",
+  "flows_run_id": "2026-11-02_v1",
+  "xml_flows_run_id": "2026-10-31_v3",
+  "ns": [
+    0,
+    5,
+    10,
+    20,
+    50
+  ],
+  "ks": [
+    5,
+    10
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "inputs": [
+    "seq",
+    "logb"
+  ],
+  "train_day": "2021-04-11",
+  "bundle_gap_s": 5.0,
+  "window_after_s": 600.0,
+  "window": [
+    1618589282.516307,
+    1618589964.4865732
+  ],
+  "common_test_rows": 31112,
+  "common_test_rows_sha256": "1eb7e3414f25cec30c9c675ab3d12050debaccbeefc0b23b1be0690fb7cd2550",
+  "excluded_88_81_attacks": 208,
+  "window_benign_rows": 1808,
+  "boundary_cross": {
+    "start_before_w0_and_end_ge_w0": 36,
+    "start_le_w1_and_end_gt_w1": 16
+  },
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "xml_flows_sha256": "56984701746445874599587ddc8f560ba016c576ca1f1e2592680b25ff314aa1",
+  "code_sha256": {
+    "src/track_b/https_unseen.py": "424f910ca90fb9d756d9a04920c91bb1fc211425ffef5a3573e3a995895b5ccc"
+  },
+  "note": "oracle 지원 N개 라벨(사람이 발견한 결과가 아님). 04-17 검증 문턱을 04-16에 적용하는 오프라인 전이 평가. 모든 N에 같은 시험 행. 탐색적 결과이며 같은 캠페인 반복 요청을 외운 효과가 일반화 근거가 아니다"
+}

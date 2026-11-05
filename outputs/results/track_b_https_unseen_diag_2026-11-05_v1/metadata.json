@@ -1,0 +1,23 @@
+{
+  "run_id": "2026-11-05_v1",
+  "split": "time_0411to0416_all",
+  "new_victim": "128.199.88.81",
+  "fprs": [
+    0.01,
+    0.05
+  ],
+  "predictions": [
+    {
+      "path": "predictions.csv",
+      "parent": "track_b_https_eval_2026-11-02_v2",
+      "sha256": "4f030e83d1f44214b5eefa4229db4bb6956d9d6a7ad00e9c94776be93558562c"
+    },
+    {
+      "path": "predictions.csv",
+      "parent": "track_b_https_robust_2026-11-04_v1",
+      "sha256": "0d1564a3eb8c9060f88c69cf6fab7d334fa143727a08e09f2f35cc2324e7477d"
+    }
+  ],
+  "rule": "AUC>=0.9 and oracle_recall_fpr5>=0.5 -> threshold_problem; AUC<=0.6 -> representation_problem; else inconclusive",
+  "note": "저장 예측만 사용(학습 없음). oracle recall은 시험 점수로 문턱을 고른 상한이며 진단 전용, 탐지 성능이 아니다"
+}

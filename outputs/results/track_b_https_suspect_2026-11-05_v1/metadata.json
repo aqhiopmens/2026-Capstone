@@ -1,0 +1,32 @@
+{
+  "run_id": "2026-11-05_v1",
+  "flows_run_id": "2026-11-02_v1",
+  "xml_flows_run_id": "2026-10-31_v3",
+  "train_days": [
+    "2021-04-11",
+    "2021-04-12"
+  ],
+  "valid_day": "2021-04-17",
+  "test_day": "2021-04-16",
+  "suspect_budget_percent": 2,
+  "priority_budget_permille": 5,
+  "inputs": [
+    "seq",
+    "logb"
+  ],
+  "ks": [
+    5,
+    10
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "xml_flows_sha256": "56984701746445874599587ddc8f560ba016c576ca1f1e2592680b25ff314aa1",
+  "code_sha256": {
+    "src/track_b/https_unseen.py": "f0e13675dcb3d5747c5a0cfb6a277423bb75e283f05bf443587bd39ac0d140ed"
+  },
+  "note": "오프라인 전이 평가(04-17 검증 문턱을 04-16에 적용). 이상 점수는 악성 확률이 아니며 상위 0.5%는 고위험 우선 검토 순위일 뿐 공격 판정이 아니다. 탐색적 결과"
+}
