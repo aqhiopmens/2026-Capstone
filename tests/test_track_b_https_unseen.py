@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from src.track_b.https_flows import ATTACK, BENIGN
-from src.track_b.https_unseen import NEW_VICTIM, attack_score, diagnose, oracle_recall
+from src.track_b.https_unseen import NEW_VICTIM, attack_score, budget_threshold, diagnose, oracle_recall
 
 
 class UnseenDiagnosisTests(unittest.TestCase):
@@ -34,6 +34,25 @@ class UnseenDiagnosisTests(unittest.TestCase):
         self.assertEqual(v[("g1", "benign_all")], "threshold_problem")
         self.assertEqual(v[("g2", "benign_all")], "representation_problem")  # 공격이 정상보다 더 정상처럼 점수
         self.assertIn(("g2", "benign_csv_unmatched"), v.index)
+
+
+class BudgetThresholdTests(unittest.TestCase):
+    def test_strict_integer_budget_excludes_overflowing_tie_block(self):
+        scores = np.r_[np.full(10, 5.0), np.arange(90) * 0.01]  # 최대 5.0이 10행 동률
+        cut = budget_threshold(scores, 2, 100)  # 100행의 2% = 2행 < 동률 블록 10행
+        self.assertEqual((cut["allowed"], cut["flagged"], cut["boundary_tie_rows"]), (2, 0, 10))
+        cut = budget_threshold(scores, 10, 100)  # 예산 10행이 블록과 같아 모두 표시
+        self.assertEqual(cut["flagged"], 10)
+
+    def test_budget_never_exceeded_and_integer_arithmetic(self):
+        scores = np.arange(4455, dtype=float)
+        self.assertEqual(budget_threshold(scores, 2, 100)["allowed"], 89)
+        self.assertEqual(budget_threshold(scores, 5, 1000)["allowed"], 22)
+        self.assertEqual(budget_threshold(scores, 2, 100)["flagged"], 89)
+        with self.assertRaises(ValueError):
+            budget_threshold([], 2, 100)
+        with self.assertRaises(ValueError):
+            budget_threshold([1.0, np.nan], 2, 100)
 
 
 if __name__ == "__main__":
