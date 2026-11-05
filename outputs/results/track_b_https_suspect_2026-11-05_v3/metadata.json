@@ -1,0 +1,91 @@
+{
+  "run_id": "2026-11-05_v3",
+  "flows_run_id": "2026-11-02_v1",
+  "xml_flows_run_id": "2026-10-31_v3",
+  "train_days": [
+    "2021-04-11",
+    "2021-04-12"
+  ],
+  "valid_day": "2021-04-17",
+  "test_day": "2021-04-16",
+  "suspect_budget_percent": 2,
+  "priority_budget_permille": 5,
+  "inputs": [
+    "seq",
+    "logb"
+  ],
+  "ks": [
+    5,
+    10
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "xml_flows_sha256": "56984701746445874599587ddc8f560ba016c576ca1f1e2592680b25ff314aa1",
+  "rows_file": {
+    "path": "predictions/track_b_https_suspect_2026-11-05_v3/suspect_rows.csv.gz",
+    "sha256": "5e1d6ffe8d5302f20d2b4efcdd867022a7f6e847fd4d0d379bd5190e1d7ff5d2"
+  },
+  "environment": {
+    "machine": "kyle-win",
+    "python": "3.12.14",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "packages": {
+      "scikit-learn": "1.6.1",
+      "numpy": "2.0.2",
+      "pandas": "2.2.2",
+      "lightgbm": "4.6.0"
+    },
+    "git_commit": "47cc4a0762490dcb6a2e3cc690992c50313f348d",
+    "git_dirty_src_tests": false,
+    "dependency_sha256": {
+      "src/track_b/https_unseen.py": "46d86915c0df5c60a192a66da2eed64398f52b3f8ac4660d0705409c522bd37f",
+      "src/track_b/early_eval.py": "f9853f2b6ad22b832dd1f0994d07e8d9d2b660fe455953dd5ed7dc78dcfd3d83",
+      "src/track_b/https_robust.py": "e459e70f0e762216fa17b70a0b5ad1870de576e93875d51565dce27d1aba52a5",
+      "src/track_b/https_eval.py": "8ddee8292693759ae9b36e65e6ba4ee6c02fd8585c7ea1d25e4d20fcbc484dd0",
+      "src/track_b/https_flows.py": "24fd8ef6b0791facffa4aebe5211442b749449f37461caa795304751840e3e8f",
+      "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5",
+      "src/common/models.py": "5aaa4ea1c4b29e4f59db08e1c21935f565e7de2fd82e9e4471d5f8e337287598",
+      "src/common/experiment.py": "0820bc4888b4ebf70b6ae840257da7547237ae8bc4166ee834bfde5ada107bf1"
+    },
+    "rf_params": {
+      "bootstrap": true,
+      "ccp_alpha": 0.0,
+      "class_weight": "balanced",
+      "criterion": "gini",
+      "max_depth": null,
+      "max_features": "sqrt",
+      "max_leaf_nodes": null,
+      "max_samples": null,
+      "min_impurity_decrease": 0.0,
+      "min_samples_leaf": 1,
+      "min_samples_split": 2,
+      "min_weight_fraction_leaf": 0.0,
+      "monotonic_cst": null,
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "oob_score": false,
+      "random_state": 0,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "isolation_forest_params": {
+      "bootstrap": false,
+      "contamination": "auto",
+      "max_features": 1.0,
+      "max_samples": "auto",
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "random_state": 0,
+      "verbose": 0,
+      "warm_start": false
+    }
+  },
+  "code_sha256": {
+    "src/track_b/https_unseen.py": "46d86915c0df5c60a192a66da2eed64398f52b3f8ac4660d0705409c522bd37f"
+  },
+  "note": "오프라인 전이 평가(04-17 검증 문턱을 04-16에 적용). 이상 점수는 악성 확률이 아니며 상위 0.5%는 고위험 우선 검토 순위일 뿐 공격 판정이 아니다. 탐색적 결과"
+}
