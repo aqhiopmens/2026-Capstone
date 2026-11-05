@@ -1,5 +1,5 @@
 {
-  "run_id": "2026-11-05_v1",
+  "run_id": "2026-11-05_v2",
   "machine": "kyle-win",
   "captures": {
     "Sunday_2022-04-10_2335_BRUTEFORCE_HTTPS_150s.pcap": {
@@ -32,8 +32,8 @@
     "src/track_b/https_flows.py": "24fd8ef6b0791facffa4aebe5211442b749449f37461caa795304751840e3e8f",
     "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5"
   },
-  "git_commit": "b14867f184a41deb18afc190b90ed194118e29c1",
-  "git_dirty_src_tests": true,
+  "git_commit": "d412b793a78712496ba9e7fd8aad9f4f5bfa5a42",
+  "git_dirty_src_tests": false,
   "label_rule": "공격자 클라이언트 IP → 피해자 서버:443 = 공격, 그 밖의 443 = 정상(잠정). CSV는 확인용",
   "note": "성능 확인 전 라벨 감사. flows.csv·flow_status.csv는 DATA_DIR에만 있다"
 }
