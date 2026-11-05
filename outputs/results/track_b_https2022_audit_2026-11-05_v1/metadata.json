@@ -1,0 +1,39 @@
+{
+  "run_id": "2026-11-05_v1",
+  "machine": "kyle-win",
+  "captures": {
+    "Sunday_2022-04-10_2335_BRUTEFORCE_HTTPS_150s.pcap": {
+      "day": "2022-04-10",
+      "attacker": "203.178.143.112",
+      "victims": [
+        "184.0.48.150",
+        "184.0.48.169"
+      ]
+    }
+  },
+  "summary": [
+    {
+      "pcap": "Sunday_2022-04-10_2335_BRUTEFORCE_HTTPS_150s.pcap",
+      "tcp_packets": 307665,
+      "flows": 2179,
+      "skipped": {
+        "non_tcp": 19166,
+        "non_ipv4": 212
+      },
+      "pcap_sha256": "efeee340ff4b150fac3f0d538839192bf2de27c5c6c87207b20666e3280e82a2"
+    }
+  ],
+  "k_max": 30,
+  "flows_sha256": "13fd232978359f027bf83fed327e31f939f70e5ded73ab0ebdb87d1bd0440894",
+  "flow_status_sha256": "a92bf97072265c2fc3e3bb8cb40284ba5420861b86c680899647a47c4b4bd597",
+  "csv_sha256": "bbb662754dc877d6a2ae406c9089461bff7d02766c06f86b46116a08326d686e",
+  "code_sha256": {
+    "src/track_b/https_flows_2022.py": "81ca7792cd0f944c977d376ad5c7084bff0e3076909ac9e511daec93788f8094",
+    "src/track_b/https_flows.py": "24fd8ef6b0791facffa4aebe5211442b749449f37461caa795304751840e3e8f",
+    "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5"
+  },
+  "git_commit": "b14867f184a41deb18afc190b90ed194118e29c1",
+  "git_dirty_src_tests": true,
+  "label_rule": "공격자 클라이언트 IP → 피해자 서버:443 = 공격, 그 밖의 443 = 정상(잠정). CSV는 확인용",
+  "note": "성능 확인 전 라벨 감사. flows.csv·flow_status.csv는 DATA_DIR에만 있다"
+}

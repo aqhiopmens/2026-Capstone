@@ -1,0 +1,3 @@
+pcap,label,flows,payload0,key_flows,key_payload_flows,key_payload_nonzero_flows,key_payload_one_row,csv_rows_hit_key_payload,kp_single_agree,kp_unmatched,kp_multi_agree,k_single_agree,k_multi_agree,k_unmatched
+Sunday_2022-04-10_2335_BRUTEFORCE_HTTPS_150s.pcap,benign,131,54,130,128,75,126,132,126,3,2,128,2,1.0
+Sunday_2022-04-10_2335_BRUTEFORCE_HTTPS_150s.pcap,bruteforce_https,2048,1,2048,2031,2030,1993,2031,1993,17,38,1911,137,0.0
