@@ -12,6 +12,7 @@ Run: uv run python -m src.track_b.https_unseen diag --predictions <csv> [--predi
 """
 
 import argparse
+import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
@@ -131,8 +132,10 @@ def suspect_run(flows, k, kind, seed):
     row = dict(kind=kind, k=k, seed=seed, valid_rows=len(valid), valid_flagged=cut["flagged"], valid_allowed=cut["allowed"],
                boundary_tie_rows=cut["boundary_tie_rows"], tau=cut["tau"], top_tau=top["tau"], top_flagged=top["flagged"],
                top_boundary_tie_rows=top["boundary_tie_rows"], valid_88_81_benign_rows=int((valid.server_ip == NEW_VICTIM).sum()))
+    details = [pd.DataFrame(dict(pcap=valid.pcap.to_numpy(), flow_id=valid.flow_id.to_numpy(), role="valid", score=val_scores))]
     for name, g in groups.items():
         s = anomaly_scores(model, make(g)) if len(g) else np.array([])
+        details.append(pd.DataFrame(dict(pcap=g.pcap.to_numpy(), flow_id=g.flow_id.to_numpy(), role=name, score=s)))
         row[f"{name}_rows"] = len(g)
         row[f"{name}_flag_rate"] = float((s > cut["tau"]).mean()) if len(g) else np.nan
         row[f"{name}_priority_rate"] = float((s > top["tau"]).mean()) if len(g) else np.nan
@@ -141,7 +144,10 @@ def suspect_run(flows, k, kind, seed):
             row["test_benign_short_flag_rate"] = float((s[short] > cut["tau"]).mean()) if short.any() else np.nan
             row["test_benign_short_rows"] = int(short.sum())
     row["fpr_valid_minus_test"] = row["valid_flagged"] / row["valid_rows"] - row["test_benign_flag_rate"]
-    return row
+    detail = pd.concat(details, ignore_index=True)
+    detail = detail.assign(kind=kind, k=k, seed=seed, suspect=detail.score > cut["tau"], priority=detail.score > top["tau"],
+                           tau=cut["tau"], top_tau=top["tau"])
+    return row, detail
 
 
 def load_flows(flows_run_id, xml_run_id, data_dir):
@@ -182,9 +188,11 @@ def b1_split(flows, n_max=50):
     end = day.start_ts + day.duration
     inside = (day.start_ts >= w0) & (day.start_ts <= w1)
     cross = int(((day.start_ts < w0) & (end >= w0)).sum()), int(((day.start_ts <= w1) & (end > w1)).sum())
-    test = day[~inside]
+    test = day[day.start_ts > w1]  # 합의한 '창 이후' 시험. 창 시작 전 행(정상 105)과 창 안 행은 모두 제외
+    before = int((day.start_ts < w0).sum())
     window_benign = day[inside & (day.label == BENIGN)]
     return dict(test=test, support_attacks=ordered, window_benign=window_benign, window=(w0, w1), boundary_cross=cross,
+                before_window_rows=before, before_window_cross_rows=cross[0],
                 excluded_attacks=int((inside & (day.label == ATTACK) & (day.server_ip == NEW_VICTIM)).sum()))
 
 
@@ -215,12 +223,22 @@ def b1_run(flows, k, kind, seed, split, ns=B1_NS):
     t_242 = test[(test.label == ATTACK) & (test.server_ip != NEW_VICTIM)]
     t_benign = test[test.label == BENIGN]
     xt = {name: make(g) for name, g in (("attack", t_attack), ("a242", t_242), ("benign", t_benign))}
-    rows = []
+    rows, details = [], []
+    roles = pd.concat([
+        pd.DataFrame(dict(pcap=first50.pcap.to_numpy(), flow_id=first50.flow_id.to_numpy(), role="support_attack_order",
+                          order=np.arange(1, len(first50) + 1), score=anomaly_scores(iso, make(first50)))),
+        pd.DataFrame(dict(pcap=flagged_benign.pcap.to_numpy(), flow_id=flagged_benign.flow_id.to_numpy(), role="support_benign",
+                          order=0, score=anomaly_scores(iso, make(flagged_benign)) if len(flagged_benign) else np.array([])))],
+        ignore_index=True).assign(kind=kind, k=k, seed=seed, tau=tau)
+    groups_b = {"attack": t_attack, "a242": t_242, "benign": t_benign}
     for n in ns:
         support = sa.head(n)
         train = pd.concat([base, support, flagged_benign], ignore_index=True)
         model = make_model("rf", seed=seed, workers=2).fit(make(train), train.label)
         pred = {name: model.predict(x) for name, x in xt.items()}
+        details.append(pd.concat([pd.DataFrame(dict(pcap=g.pcap.to_numpy(), flow_id=g.flow_id.to_numpy(), role=name,
+                                                    pred_attack=(pred[name] == ATTACK).astype(np.int8)))
+                                  for name, g in groups_b.items()], ignore_index=True).assign(kind=kind, k=k, seed=seed, n=n))
         new = prefix_keys(make(support)) if n else []
         unseen = np.array([key not in set(new) for key in prefix_keys(xt["attack"])])
         short = (t_benign.payload_packets < k).to_numpy()
@@ -232,7 +250,7 @@ def b1_run(flows, k, kind, seed, split, ns=B1_NS):
                          benign_test_rows=len(t_benign), benign_fpr=float((pred["benign"] == ATTACK).mean()),
                          benign_short_rows=int(short.sum()),
                          benign_short_fpr=float((pred["benign"][short] == ATTACK).mean()) if short.any() else np.nan))
-    return rows
+    return rows, pd.concat(details, ignore_index=True), roles
 
 
 def b1_main(args):
@@ -244,8 +262,12 @@ def b1_main(args):
         raise FileExistsError("기존 결과를 덮어쓰지 않습니다. 다른 run-id를 지정하세요")
     flows = load_flows(args.flows_run_id, args.xml_flows_run_id, DATA_DIR)
     split = b1_split(flows)
-    rows = [r for kind in INPUTS for k in B1_KS for seed in SEEDS for r in b1_run(flows, k, kind, seed, split)]
-    result = pd.DataFrame(rows)
+    runs = [b1_run(flows, k, kind, seed, split) for kind in INPUTS for k in B1_KS for seed in SEEDS]
+    result = pd.DataFrame([r for rows, _, _ in runs for r in rows])
+    data_out = DATA_DIR / "predictions" / f"track_b_https_b1_{args.run_id}"
+    data_out.mkdir(parents=True)
+    pd.concat([d for _, d, _ in runs], ignore_index=True).to_csv(data_out / "b1_test_predictions.csv.gz", index=False)
+    pd.concat([r for _, _, r in runs], ignore_index=True).to_csv(data_out / "b1_support_roles.csv.gz", index=False, float_format="%.17g")
     out.mkdir(parents=True)
     result.to_csv(out / "b1.csv", index=False)
     result.groupby(["kind", "k", "n"]).mean(numeric_only=True).reset_index().to_csv(out / "summary.csv", index=False)
@@ -255,6 +277,10 @@ def b1_main(args):
         run_id=args.run_id, flows_run_id=args.flows_run_id, xml_flows_run_id=args.xml_flows_run_id, ns=list(B1_NS), ks=list(B1_KS),
         seeds=list(SEEDS), inputs=list(INPUTS), train_day=B1_TRAIN_DAY, bundle_gap_s=BUNDLE_GAP_S, window_after_s=WINDOW_AFTER_S,
         window=list(split["window"]), common_test_rows=len(test_ids), common_test_rows_sha256=sha256_file(out / "common_test_rows.csv"),
+        common_test_rows_sha256_lf=hashlib.sha256((out / "common_test_rows.csv").read_bytes().replace(b"\r\n", b"\n")).hexdigest(),
+        test_definition="04-16 flows with start_ts > window_end (합의한 창 이후). 창 시작 전 행과 창 안 행은 제외",
+        before_window_rows_excluded=split["before_window_rows"],
+        predictions_files={f.name: sha256_file(f) for f in sorted(data_out.iterdir())},
         excluded_88_81_attacks=split["excluded_attacks"], window_benign_rows=len(split["window_benign"]),
         boundary_cross=dict(start_before_w0_and_end_ge_w0=split["boundary_cross"][0], start_le_w1_and_end_gt_w1=split["boundary_cross"][1]),
         flows_sha256=sha256_file(DATA_DIR / "processed" / f"track_b_https_{args.flows_run_id}" / "flows.csv"),
@@ -278,7 +304,11 @@ def suspect_main(args):
     if out.exists():
         raise FileExistsError("기존 결과를 덮어쓰지 않습니다. 다른 run-id를 지정하세요")
     flows = load_flows(args.flows_run_id, args.xml_flows_run_id, DATA_DIR)
-    result = pd.DataFrame([suspect_run(flows, k, kind, seed) for kind in INPUTS for k in SUSPECT_KS for seed in SEEDS])
+    pairs = [suspect_run(flows, k, kind, seed) for kind in INPUTS for k in SUSPECT_KS for seed in SEEDS]
+    result = pd.DataFrame([r for r, _ in pairs])
+    data_out = DATA_DIR / "predictions" / f"track_b_https_suspect_{args.run_id}"
+    data_out.mkdir(parents=True)
+    pd.concat([d for _, d in pairs], ignore_index=True).to_csv(data_out / "suspect_rows.csv.gz", index=False, float_format="%.17g")
     out.mkdir(parents=True)
     result.to_csv(out / "suspect.csv", index=False)
     summary = result.groupby(["kind", "k"]).mean(numeric_only=True).reset_index()
@@ -289,6 +319,8 @@ def suspect_main(args):
         priority_budget_permille=PRIORITY_BUDGET[0], inputs=list(INPUTS), ks=list(SUSPECT_KS), seeds=list(SEEDS),
         flows_sha256=sha256_file(DATA_DIR / "processed" / f"track_b_https_{args.flows_run_id}" / "flows.csv"),
         xml_flows_sha256=sha256_file(DATA_DIR / "processed" / f"track_b_{args.xml_flows_run_id}" / "flows.csv"),
+        rows_file=dict(path=f"predictions/track_b_https_suspect_{args.run_id}/suspect_rows.csv.gz",
+                       sha256=sha256_file(data_out / "suspect_rows.csv.gz")),
         code_sha256={"src/track_b/https_unseen.py": sha256_file(Path(__file__))},
         note="오프라인 전이 평가(04-17 검증 문턱을 04-16에 적용). 이상 점수는 악성 확률이 아니며 상위 0.5%는 고위험 우선 검토 순위일 뿐 "
              "공격 판정이 아니다. 탐색적 결과"), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

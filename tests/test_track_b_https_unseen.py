@@ -72,8 +72,9 @@ class B1SplitTests(unittest.TestCase):
         self.assertEqual(bundle.tolist(), [0, 0, 0, 1, 1, 2])
         split = b1_split(f, n_max=3)
         test_ids = set(split["test"].flow_id)
-        self.assertFalse(test_ids & {0, 1, 2, 3, 4, 11, 12})  # 창(0~603초) 안 공격·정상은 시험 제외
-        self.assertTrue({5, 10, 13, 14} <= test_ids)           # 창 밖(앞·뒤) 행은 시험
+        self.assertFalse(test_ids & {0, 1, 2, 3, 4, 10, 11, 12})  # 창(0~603초) 안 행과 창 시작 전 정상(10)은 시험 제외
+        self.assertEqual(test_ids, {5, 13, 14})                     # 시험 = start_ts > 창 끝(창 이후)만
+        self.assertEqual(split["before_window_rows"], 1)
         self.assertEqual(split["excluded_attacks"], 5)  # 창(0~603초) 안 공격 5행(0,1,2,100,101)
         self.assertEqual(sorted(split["window_benign"].flow_id), [11, 12])  # 5초, 300초 정상
 
