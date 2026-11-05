@@ -160,6 +160,28 @@ def load_flows(flows_run_id, xml_run_id, data_dir):
     return flows[flows.payload_packets > 0].reset_index(drop=True)
 
 
+ENV_DEPENDENCIES = ("src/track_b/https_unseen.py", "src/track_b/early_eval.py", "src/track_b/https_robust.py", "src/track_b/https_eval.py",
+                    "src/track_b/https_flows.py", "src/track_b/pcap_flows.py", "src/common/models.py", "src/common/experiment.py")
+
+
+def run_environment(root):
+    """실행 당시의 머신·버전·코드 SHA·모델 전체 파라미터. 과거 실행에 소급하지 않도록 실행 시점에 기록한다."""
+    import platform
+    import subprocess
+    from importlib.metadata import version
+
+    from src.common.config import MACHINE
+    from src.common.models import make_model
+
+    git = lambda *a: subprocess.check_output(["git", *a], cwd=root, text=True, encoding="utf-8").strip()
+    return dict(machine=MACHINE, python=platform.python_version(), platform=platform.platform(),
+                packages={n: version(n) for n in ("scikit-learn", "numpy", "pandas", "lightgbm")},
+                git_commit=git("rev-parse", "HEAD"), git_dirty_src_tests=bool(git("status", "--porcelain", "--", "src", "tests")),
+                dependency_sha256={d: sha256_file(root / d) for d in ENV_DEPENDENCIES},
+                rf_params=make_model("rf", seed=0).get_params(),
+                isolation_forest_params=IsolationForest(n_estimators=100, random_state=0, n_jobs=2).get_params())
+
+
 B1_NS = (0, 5, 10, 20, 50)
 B1_KS = (5, 10)
 BUNDLE_GAP_S, WINDOW_AFTER_S = 5.0, 600.0
@@ -272,12 +294,13 @@ def b1_main(args):
     result.to_csv(out / "b1.csv", index=False)
     result.groupby(["kind", "k", "n"]).mean(numeric_only=True).reset_index().to_csv(out / "summary.csv", index=False)
     test_ids = split["test"][["pcap", "flow_id"]].sort_values(["pcap", "flow_id"])
-    test_ids.to_csv(out / "common_test_rows.csv", index=False)
+    test_ids.to_csv(data_out / "common_test_rows.csv", index=False)  # 행별 분할은 DATA_DIR에만(저장소에는 행수·정의·SHA만)
     (out / "metadata.json").write_text(json.dumps(dict(
         run_id=args.run_id, flows_run_id=args.flows_run_id, xml_flows_run_id=args.xml_flows_run_id, ns=list(B1_NS), ks=list(B1_KS),
         seeds=list(SEEDS), inputs=list(INPUTS), train_day=B1_TRAIN_DAY, bundle_gap_s=BUNDLE_GAP_S, window_after_s=WINDOW_AFTER_S,
-        window=list(split["window"]), common_test_rows=len(test_ids), common_test_rows_sha256=sha256_file(out / "common_test_rows.csv"),
-        common_test_rows_sha256_lf=hashlib.sha256((out / "common_test_rows.csv").read_bytes().replace(b"\r\n", b"\n")).hexdigest(),
+        window=list(split["window"]), common_test_rows=len(test_ids), common_test_rows_sha256=sha256_file(data_out / "common_test_rows.csv"),
+        common_test_rows_sha256_lf=hashlib.sha256((data_out / "common_test_rows.csv").read_bytes().replace(b"\r\n", b"\n")).hexdigest(),
+        common_test_rows_path=f"predictions/track_b_https_b1_{args.run_id}/common_test_rows.csv", environment=run_environment(root),
         test_definition="04-16 flows with start_ts > window_end (합의한 창 이후). 창 시작 전 행과 창 안 행은 제외",
         before_window_rows_excluded=split["before_window_rows"],
         predictions_files={f.name: sha256_file(f) for f in sorted(data_out.iterdir())},
@@ -320,7 +343,7 @@ def suspect_main(args):
         flows_sha256=sha256_file(DATA_DIR / "processed" / f"track_b_https_{args.flows_run_id}" / "flows.csv"),
         xml_flows_sha256=sha256_file(DATA_DIR / "processed" / f"track_b_{args.xml_flows_run_id}" / "flows.csv"),
         rows_file=dict(path=f"predictions/track_b_https_suspect_{args.run_id}/suspect_rows.csv.gz",
-                       sha256=sha256_file(data_out / "suspect_rows.csv.gz")),
+                       sha256=sha256_file(data_out / "suspect_rows.csv.gz")), environment=run_environment(root),
         code_sha256={"src/track_b/https_unseen.py": sha256_file(Path(__file__))},
         note="오프라인 전이 평가(04-17 검증 문턱을 04-16에 적용). 이상 점수는 악성 확률이 아니며 상위 0.5%는 고위험 우선 검토 순위일 뿐 "
              "공격 판정이 아니다. 탐색적 결과"), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
