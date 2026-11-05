@@ -351,8 +351,7 @@ def b1_metrics_main(args):
     meta["posthoc_metrics"] = dict(file="metrics_per_condition.csv", computed_from=str(pred_path.relative_to(DATA_DIR)),
                                    predictions_sha256=sha256_file(pred_path), note="재학습 없이 저장 예측에서 계산(양성=두 공격 피해자)",
                                    code_sha256=sha256_file(Path(__file__)))
-    (out / "metadata.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "
-", encoding="utf-8")
+    (out / "metadata.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     pd.set_option("display.width", 200)
     print(summary[["kind", "k", "n", "accuracy", "macro_f1"]].round(6).to_string(index=False))
 
