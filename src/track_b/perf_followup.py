@@ -72,6 +72,7 @@ def fit_models(train, k):
         m = make_model(kind, seed=SEED, workers=2)
         m.set_params(n_estimators=trees)
         models[name] = m.fit(x if inp == "df" else x.to_numpy(), train.label.to_numpy())
+        models[name].set_params(n_jobs=1)  # 단건 판정은 단일 스레드(#42와 같음). 학습만 workers=2
     return models, x
 
 
