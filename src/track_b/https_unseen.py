@@ -145,12 +145,129 @@ def suspect_run(flows, k, kind, seed):
 
 
 def load_flows(flows_run_id, xml_run_id, data_dir):
-    cols = ["pcap", "day", "flow_id", "label", "client_ip", "server_ip", "payload_packets", "midstream"] + SEQ_COLUMNS
+    cols = ["pcap", "day", "flow_id", "label", "client_ip", "server_ip", "payload_packets", "midstream",
+            "start_ts", "duration"] + SEQ_COLUMNS
     a = pd.read_csv(data_dir / "processed" / f"track_b_https_{flows_run_id}" / "flows.csv", usecols=cols, keep_default_na=False)
     b = pd.read_csv(data_dir / "processed" / f"track_b_{xml_run_id}" / "flows.csv", usecols=cols, keep_default_na=False)
     b = b.assign(label=b.label.replace({"bruteforce_xml": ATTACK}))
     flows = pd.concat([a, b], ignore_index=True)
     return flows[flows.payload_packets > 0].reset_index(drop=True)
+
+
+B1_NS = (0, 5, 10, 20, 50)
+B1_KS = (5, 10)
+BUNDLE_GAP_S, WINDOW_AFTER_S = 5.0, 600.0
+B1_TRAIN_DAY = "2021-04-11"
+
+
+def support_window(attacks, n_max=50, gap=BUNDLE_GAP_S, after=WINDOW_AFTER_S):
+    """첫 n_max개 공격이 속한 연결 묶음(시작 시각 간격 > gap초면 새 묶음) 전체와 그 종료 후 after초까지의 시간 창.
+
+    반환: (창 시작, 창 끝, 지원 후보 순서(start_ts 순 행 위치), 묶음 id 배열). 종료 시각 = start_ts + duration.
+    """
+    a = attacks.sort_values(["start_ts", "flow_id"]).reset_index(drop=True)
+    bundle = (a.start_ts.diff().fillna(0) > gap).cumsum().to_numpy()
+    first_bundles = np.unique(bundle[:n_max])
+    in_bundle = np.isin(bundle, first_bundles)
+    start = float(a.start_ts[in_bundle].min())
+    end = float((a.start_ts + a.duration)[in_bundle].max()) + after
+    return start, end, a, bundle
+
+
+def b1_split(flows, n_max=50):
+    """공통 시험 행과 지원 후보. 시험 = 창 밖 04-16 정상과 창 밖 공격(.88.81, .242.104). 창 안 행은 모든 N에서 시험 제외."""
+    day = flows[flows.day == TEST_DAY]
+    attacks = day[(day.label == ATTACK) & (day.server_ip == NEW_VICTIM)]
+    w0, w1, ordered, _ = support_window(attacks, n_max)
+    end = day.start_ts + day.duration
+    inside = (day.start_ts >= w0) & (day.start_ts <= w1)
+    cross = int(((day.start_ts < w0) & (end >= w0)).sum()), int(((day.start_ts <= w1) & (end > w1)).sum())
+    test = day[~inside]
+    window_benign = day[inside & (day.label == BENIGN)]
+    return dict(test=test, support_attacks=ordered, window_benign=window_benign, window=(w0, w1), boundary_cross=cross,
+                excluded_attacks=int((inside & (day.label == ATTACK) & (day.server_ip == NEW_VICTIM)).sum()))
+
+
+def prefix_keys(x):
+    return [tuple(r) for r in x.to_numpy().tolist()]
+
+
+def b1_run(flows, k, kind, seed, split, ns=B1_NS):
+    """N개의 .88.81 공격 라벨(oracle 지원)과 의심 칸 정상 소수를 학습에 추가했을 때 공통 시험의 recall·오탐. 학습 기준선은 04-11 단독."""
+    from src.common.models import make_model
+
+    make = (lambda f: prefix_features(f, k, "seq")) if kind == "seq" else (lambda f: transform(f, k, "logb"))
+    base = flows[flows.day == B1_TRAIN_DAY]
+    benign = flows.label == BENIGN
+    train_a = flows[benign & flows.day.isin(TRAIN_DAYS)]
+    valid = flows[benign & (flows.day == VALID_DAY)]
+    iso = IsolationForest(n_estimators=100, random_state=seed, n_jobs=2).fit(make(train_a))
+    tau = budget_threshold(anomaly_scores(iso, make(valid)), *SUSPECT_BUDGET)["tau"]
+    wb = split["window_benign"]
+    flagged_benign = wb[anomaly_scores(iso, make(wb)) > tau] if len(wb) else wb  # 사람이 의심 칸에서 확인한 정상(모든 N 공통)
+    sa = split["support_attacks"]
+    first50 = sa.head(max(ns))
+    policy = dict(first50_attacks=len(first50),
+                  first50_flagged=int((anomaly_scores(iso, make(first50)) > tau).sum()),
+                  reviewed_benign=len(flagged_benign), window_benign=len(wb))
+    test = split["test"]
+    t_attack = test[(test.label == ATTACK) & (test.server_ip == NEW_VICTIM)]
+    t_242 = test[(test.label == ATTACK) & (test.server_ip != NEW_VICTIM)]
+    t_benign = test[test.label == BENIGN]
+    xt = {name: make(g) for name, g in (("attack", t_attack), ("a242", t_242), ("benign", t_benign))}
+    rows = []
+    for n in ns:
+        support = sa.head(n)
+        train = pd.concat([base, support, flagged_benign], ignore_index=True)
+        model = make_model("rf", seed=seed, workers=2).fit(make(train), train.label)
+        pred = {name: model.predict(x) for name, x in xt.items()}
+        new = prefix_keys(make(support)) if n else []
+        unseen = np.array([key not in set(new) for key in prefix_keys(xt["attack"])])
+        short = (t_benign.payload_packets < k).to_numpy()
+        rows.append(dict(kind=kind, k=k, seed=seed, n=n, **policy, train_rows=len(train), test_attack_rows=len(t_attack),
+                         recall_88_81=float((pred["attack"] == ATTACK).mean()),
+                         unseen_prefix_rows=int(unseen.sum()),
+                         recall_88_81_unseen_prefix=float((pred["attack"][unseen] == ATTACK).mean()) if unseen.any() else np.nan,
+                         recall_242_104=float((pred["a242"] == ATTACK).mean()) if len(t_242) else np.nan,
+                         benign_test_rows=len(t_benign), benign_fpr=float((pred["benign"] == ATTACK).mean()),
+                         benign_short_rows=int(short.sum()),
+                         benign_short_fpr=float((pred["benign"][short] == ATTACK).mean()) if short.any() else np.nan))
+    return rows
+
+
+def b1_main(args):
+    from src.common.config import DATA_DIR
+
+    root = Path(__file__).resolve().parents[2]
+    out = root / "outputs/results" / f"track_b_https_b1_{args.run_id}"
+    if out.exists():
+        raise FileExistsError("기존 결과를 덮어쓰지 않습니다. 다른 run-id를 지정하세요")
+    flows = load_flows(args.flows_run_id, args.xml_flows_run_id, DATA_DIR)
+    split = b1_split(flows)
+    rows = [r for kind in INPUTS for k in B1_KS for seed in SEEDS for r in b1_run(flows, k, kind, seed, split)]
+    result = pd.DataFrame(rows)
+    out.mkdir(parents=True)
+    result.to_csv(out / "b1.csv", index=False)
+    result.groupby(["kind", "k", "n"]).mean(numeric_only=True).reset_index().to_csv(out / "summary.csv", index=False)
+    test_ids = split["test"][["pcap", "flow_id"]].sort_values(["pcap", "flow_id"])
+    test_ids.to_csv(out / "common_test_rows.csv", index=False)
+    (out / "metadata.json").write_text(json.dumps(dict(
+        run_id=args.run_id, flows_run_id=args.flows_run_id, xml_flows_run_id=args.xml_flows_run_id, ns=list(B1_NS), ks=list(B1_KS),
+        seeds=list(SEEDS), inputs=list(INPUTS), train_day=B1_TRAIN_DAY, bundle_gap_s=BUNDLE_GAP_S, window_after_s=WINDOW_AFTER_S,
+        window=list(split["window"]), common_test_rows=len(test_ids), common_test_rows_sha256=sha256_file(out / "common_test_rows.csv"),
+        excluded_88_81_attacks=split["excluded_attacks"], window_benign_rows=len(split["window_benign"]),
+        boundary_cross=dict(start_before_w0_and_end_ge_w0=split["boundary_cross"][0], start_le_w1_and_end_gt_w1=split["boundary_cross"][1]),
+        flows_sha256=sha256_file(DATA_DIR / "processed" / f"track_b_https_{args.flows_run_id}" / "flows.csv"),
+        xml_flows_sha256=sha256_file(DATA_DIR / "processed" / f"track_b_{args.xml_flows_run_id}" / "flows.csv"),
+        code_sha256={"src/track_b/https_unseen.py": sha256_file(Path(__file__))},
+        note="oracle 지원 N개 라벨(사람이 발견한 결과가 아님). 04-17 검증 문턱을 04-16에 적용하는 오프라인 전이 평가. "
+             "모든 N에 같은 시험 행. 탐색적 결과이며 같은 캠페인 반복 요청을 외운 효과가 일반화 근거가 아니다"),
+        ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    pd.set_option("display.width", 250)
+    s = result.groupby(["kind", "k", "n"]).mean(numeric_only=True).reset_index()
+    print(s[["kind", "k", "n", "recall_88_81", "recall_88_81_unseen_prefix", "unseen_prefix_rows", "benign_fpr", "benign_short_fpr",
+             "first50_flagged", "reviewed_benign"]].round(4).to_string(index=False))
+    print("test rows", len(test_ids), "excluded attacks", split["excluded_attacks"], "window", split["window"], "DONE", out, flush=True)
 
 
 def suspect_main(args):
@@ -184,6 +301,10 @@ def suspect_main(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
+    b = sub.add_parser("b1")
+    b.add_argument("--flows-run-id", required=True)
+    b.add_argument("--xml-flows-run-id", required=True)
+    b.add_argument("--run-id", default=datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d_%H%M%S"))
     r = sub.add_parser("suspect")
     r.add_argument("--flows-run-id", required=True)
     r.add_argument("--xml-flows-run-id", required=True)
@@ -194,6 +315,8 @@ def main():
     args = parser.parse_args()
     if args.cmd == "suspect":
         return suspect_main(args)
+    if args.cmd == "b1":
+        return b1_main(args)
     root = Path(__file__).resolve().parents[2]
     out = root / "outputs/results" / f"track_b_https_unseen_diag_{args.run_id}"
     if out.exists():

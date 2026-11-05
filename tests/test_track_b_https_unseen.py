@@ -55,5 +55,28 @@ class BudgetThresholdTests(unittest.TestCase):
             budget_threshold([1.0, np.nan], 2, 100)
 
 
+class B1SplitTests(unittest.TestCase):
+    def frame(self):
+        attacks = pd.DataFrame(dict(start_ts=[0.0, 1.0, 2.0, 100.0, 101.0, 2000.0], duration=[1.0] * 6, flow_id=range(6)))
+        attacks = attacks.assign(label=ATTACK, server_ip=NEW_VICTIM, day="2021-04-16", pcap="p", payload_packets=5)
+        benign = pd.DataFrame(dict(start_ts=[-50.0, 5.0, 300.0, 700.0, 3000.0], duration=[1.0] * 5, flow_id=range(10, 15)))
+        benign = benign.assign(label=BENIGN, server_ip="s", day="2021-04-16", pcap="p", payload_packets=5)
+        return pd.concat([attacks, benign], ignore_index=True)
+
+    def test_window_covers_first_bundles_plus_ten_minutes_and_is_common_to_all_n(self):
+        from src.track_b.https_unseen import b1_split, support_window
+
+        f = self.frame()
+        w0, w1, ordered, bundle = support_window(f[f.label == ATTACK], n_max=3)
+        self.assertEqual((w0, w1), (0.0, 3.0 + 600.0))  # 첫 묶음(0~3초) 종료 + 10분
+        self.assertEqual(bundle.tolist(), [0, 0, 0, 1, 1, 2])
+        split = b1_split(f, n_max=3)
+        test_ids = set(split["test"].flow_id)
+        self.assertFalse(test_ids & {0, 1, 2, 3, 4, 11, 12})  # 창(0~603초) 안 공격·정상은 시험 제외
+        self.assertTrue({5, 10, 13, 14} <= test_ids)           # 창 밖(앞·뒤) 행은 시험
+        self.assertEqual(split["excluded_attacks"], 5)  # 창(0~603초) 안 공격 5행(0,1,2,100,101)
+        self.assertEqual(sorted(split["window_benign"].flow_id), [11, 12])  # 5초, 300초 정상
+
+
 if __name__ == "__main__":
     unittest.main()
