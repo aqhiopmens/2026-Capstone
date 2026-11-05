@@ -55,6 +55,18 @@ class BudgetThresholdTests(unittest.TestCase):
             budget_threshold([1.0, np.nan], 2, 100)
 
 
+class B1MetricsTests(unittest.TestCase):
+    def test_confusion_counts_accuracy_and_macro_f1_treat_both_attack_victims_as_positive(self):
+        from src.track_b.https_unseen import b1_metrics
+
+        rows = [("attack", 1), ("attack", 0), ("a242", 1), ("benign", 0), ("benign", 0), ("benign", 1)]
+        p = pd.DataFrame(dict(role=[r for r, _ in rows], pred_attack=[v for _, v in rows], kind="seq", k=5, seed=0, n=0))
+        m = b1_metrics(p).iloc[0]
+        self.assertEqual((m.tp, m.tn, m.fp, m.fn), (2, 2, 1, 1))
+        self.assertAlmostEqual(m.accuracy, 4 / 6)
+        self.assertAlmostEqual(m.macro_f1, (2 * 2 / (2 * 2 + 1 + 1) + 2 * 2 / (2 * 2 + 1 + 1)) / 2)
+
+
 class B1SplitTests(unittest.TestCase):
     def frame(self):
         attacks = pd.DataFrame(dict(start_ts=[0.0, 1.0, 2.0, 100.0, 101.0, 2000.0], duration=[1.0] * 6, flow_id=range(6)))

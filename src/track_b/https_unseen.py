@@ -319,6 +319,44 @@ def b1_main(args):
     print("test rows", len(test_ids), "excluded attacks", split["excluded_attacks"], "window", split["window"], "DONE", out, flush=True)
 
 
+def b1_metrics(predictions):
+    """B1 저장 예측에서 조건(kind,k,seed,n)별 혼동 건수·accuracy·macro-F1을 계산한다(재학습 없음).
+
+    양성 = 공격(.88.81 + .242.104 두 공격 피해자), 음성 = 정상. 공통 시험 행 전체에서 계산한다.
+    """
+    rows = []
+    for (kind, k, seed, n), g in predictions.groupby(["kind", "k", "seed", "n"]):
+        truth, pred = (g.role != "benign").to_numpy(), g.pred_attack.to_numpy().astype(bool)
+        tp, tn = int((truth & pred).sum()), int((~truth & ~pred).sum())
+        fp, fn = int((~truth & pred).sum()), int((truth & ~pred).sum())
+        f1 = lambda a, b, c: 2 * a / (2 * a + b + c) if (2 * a + b + c) else 0.0
+        rows.append(dict(kind=kind, k=k, seed=seed, n=n, rows=len(g), tp=tp, tn=tn, fp=fp, fn=fn,
+                         accuracy=(tp + tn) / len(g), macro_f1=(f1(tp, fp, fn) + f1(tn, fn, fp)) / 2))
+    return pd.DataFrame(rows)
+
+
+def b1_metrics_main(args):
+    from src.common.config import DATA_DIR
+
+    root = Path(__file__).resolve().parents[2]
+    pred_path = DATA_DIR / "predictions" / f"track_b_https_b1_{args.run_id}" / "b1_test_predictions.csv.gz"
+    out = root / "outputs/results" / f"track_b_https_b1_{args.run_id}"
+    if not out.exists() or (out / "metrics_per_condition.csv").exists():
+        raise FileExistsError("결과 폴더가 없거나 이미 지표 파일이 있습니다")
+    metrics = b1_metrics(pd.read_csv(pred_path))
+    metrics.to_csv(out / "metrics_per_condition.csv", index=False)
+    summary = metrics.groupby(["kind", "k", "n"]).mean(numeric_only=True).reset_index().drop(columns="seed")
+    summary.to_csv(out / "metrics_summary.csv", index=False)
+    meta = json.loads((out / "metadata.json").read_text(encoding="utf-8"))
+    meta["posthoc_metrics"] = dict(file="metrics_per_condition.csv", computed_from=str(pred_path.relative_to(DATA_DIR)),
+                                   predictions_sha256=sha256_file(pred_path), note="재학습 없이 저장 예측에서 계산(양성=두 공격 피해자)",
+                                   code_sha256=sha256_file(Path(__file__)))
+    (out / "metadata.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "
+", encoding="utf-8")
+    pd.set_option("display.width", 200)
+    print(summary[["kind", "k", "n", "accuracy", "macro_f1"]].round(6).to_string(index=False))
+
+
 def suspect_main(args):
     from src.common.config import DATA_DIR
 
@@ -356,6 +394,8 @@ def suspect_main(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
+    m = sub.add_parser("b1-metrics")
+    m.add_argument("--run-id", required=True)
     b = sub.add_parser("b1")
     b.add_argument("--flows-run-id", required=True)
     b.add_argument("--xml-flows-run-id", required=True)
@@ -372,6 +412,8 @@ def main():
         return suspect_main(args)
     if args.cmd == "b1":
         return b1_main(args)
+    if args.cmd == "b1-metrics":
+        return b1_metrics_main(args)
     root = Path(__file__).resolve().parents[2]
     out = root / "outputs/results" / f"track_b_https_unseen_diag_{args.run_id}"
     if out.exists():
