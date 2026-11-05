@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.track_b.https_2022 import condition_rows, exact_ci, split_2022
+from src.track_b.https_2022 import condition_rows, exact_ci, metrics_2022, split_2022
 from src.track_b.https_flows import ATTACK, BENIGN
 from src.track_b.pcap_flows import K_MAX
 
@@ -56,6 +56,14 @@ class Eval2022Tests(unittest.TestCase):
         split2 = dict(support=only_attack.iloc[[0]], test_mask=np.ones(2, dtype=bool))
         r2 = condition_rows(only_attack, split2, {1: np.array([True, True])}, make_x, 5, "seq", 0, (1,))[0][0]
         self.assertTrue(np.isnan(r2["test_benign_fpr"]))  # 정상 분모 0 -> 계산 불가
+
+    def test_metrics_2022_counts_only_test_rows(self):
+        p = pd.DataFrame(dict(actual=[ATTACK, ATTACK, BENIGN, BENIGN, ATTACK], pred_attack=[1, 0, 1, 0, 1], in_test=[1, 1, 1, 1, 0],
+                              kind="seq", k=5, seed=0, n=0))
+        r = metrics_2022(p).iloc[0]
+        self.assertEqual((r.tp, r.tn, r.fp, r.fn, r.rows), (1, 1, 1, 1, 4))
+        self.assertAlmostEqual(r.accuracy, 0.5)
+        self.assertAlmostEqual(r.macro_f1, 0.5)
 
 
 if __name__ == "__main__":

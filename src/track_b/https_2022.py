@@ -107,12 +107,51 @@ def run_condition(base, flows, split, k, kind, seed, ns=B1_NS):
     return rows, details
 
 
+def metrics_2022(predictions):
+    """저장 예측에서 공통 시험 행(in_test=1) 기준 조건(kind,k,seed,n)별 TP/TN/FP/FN·accuracy·macro-F1을 계산한다(재학습 없음). 양성=공격."""
+    t = predictions[predictions.in_test == 1]
+    rows = []
+    for (kind, k, seed, n), g in t.groupby(["kind", "k", "seed", "n"]):
+        truth, pred = (g.actual == ATTACK).to_numpy(), g.pred_attack.to_numpy().astype(bool)
+        tp, tn, fp, fn = int((truth & pred).sum()), int((~truth & ~pred).sum()), int((~truth & pred).sum()), int((truth & ~pred).sum())
+        f1 = lambda a, b, c: 2 * a / (2 * a + b + c) if (2 * a + b + c) else 0.0
+        rows.append(dict(kind=kind, k=k, seed=seed, n=n, rows=len(g), tp=tp, tn=tn, fp=fp, fn=fn,
+                         accuracy=(tp + tn) / len(g), macro_f1=(f1(tp, fp, fn) + f1(tn, fn, fp)) / 2))
+    return pd.DataFrame(rows)
+
+
+def metrics_main(run_id):
+    from src.common.config import DATA_DIR
+
+    root = Path(__file__).resolve().parents[2]
+    pred_path = DATA_DIR / "predictions" / f"track_b_https2022_eval_{run_id}" / "eval2022_predictions.csv.gz"
+    out = root / "outputs/results" / f"track_b_https2022_eval_{run_id}"
+    if not out.exists() or (out / "metrics_per_condition.csv").exists():
+        raise FileExistsError("결과 폴더가 없거나 이미 지표 파일이 있습니다")
+    metrics = metrics_2022(pd.read_csv(pred_path))
+    metrics.to_csv(out / "metrics_per_condition.csv", index=False)
+    summary = metrics.groupby(["kind", "k", "n"]).mean(numeric_only=True).reset_index().drop(columns="seed")
+    summary.to_csv(out / "metrics_summary.csv", index=False)
+    meta = json.loads((out / "metadata.json").read_text(encoding="utf-8"))
+    meta["posthoc_metrics"] = dict(file="metrics_per_condition.csv", computed_from=str(pred_path.relative_to(DATA_DIR)),
+                                   predictions_sha256=sha256_file(pred_path), code_sha256=sha256_file(Path(__file__)),
+                                   note="재학습 없이 저장 예측에서 계산(공통 시험 행, 양성=공격)")
+    (out / "metadata.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    pd.set_option("display.width", 200)
+    print(summary[["kind", "k", "n", "tp", "tn", "fp", "fn", "accuracy", "macro_f1"]].round(6).to_string(index=False))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--flows-run-id", required=True)
-    parser.add_argument("--flows-2022-run-id", required=True)
+    parser.add_argument("--metrics-of", help="기존 run-id의 저장 예측에서 혼동 건수·accuracy·macro-F1만 계산(재학습 없음)")
+    parser.add_argument("--flows-run-id")
+    parser.add_argument("--flows-2022-run-id")
     parser.add_argument("--run-id", default=datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d_%H%M%S"))
     args = parser.parse_args()
+    if args.metrics_of:
+        return metrics_main(args.metrics_of)
+    if not (args.flows_run_id and args.flows_2022_run_id):
+        parser.error("--flows-run-id와 --flows-2022-run-id가 필요합니다")
     from src.common.config import DATA_DIR
 
     root = Path(__file__).resolve().parents[2]
