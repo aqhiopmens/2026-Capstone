@@ -1,0 +1,4 @@
+sample,bytes,sha256,tcp_packets,flows_payload_gt0,flows_all_443,midstream_at_start,not_closed_at_end,skipped,flows_reached_k5,flows_short_k5,flows_reached_k10,flows_short_k10
+Sunday_2021-04-11_2154.pcap,10487052,29bab4dd17be3ebe7c7df5ea7e9168f456e22d624f8306fb4fbb0c477eb48675,9951,96,96,0,41,"{""non_tcp"": 636, ""non_ipv4"": 11}",96,0,87,9
+Friday_2021-04-16_2304.pcap,10487949,ea6aa7f0867416c3ae876986729ebbcde3b22d38fa5f228ec633e01ead926779,12478,133,136,0,69,"{""non_tcp"": 892, ""non_ipv4"": 24}",132,1,109,24
+Sunday_2022-04-10_2335_BRUTEFORCE_HTTPS_150s.pcap,10485854,fe30cd2008584f87cace5c75a57649c8768dbf1f69f1cdc57d7e4963c54fb445,12415,81,85,2,1,"{""non_tcp"": 1274, ""non_ipv4"": 14}",81,0,81,0
