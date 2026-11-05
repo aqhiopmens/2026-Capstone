@@ -199,7 +199,7 @@ def main():
              "시료는 3개 pcap 앞부분 10MiB라 대표성이 제한적이며 서비스 지연(대시보드·네트워크)은 측정하지 않는다. 환경 의존 값"),
         ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     pd.set_option("display.width", 250)
-    print(pd.DataFrame(stats)[["sample", "bytes", "tcp_packets", "flows_payload_gt0", "midstream_at_start", "not_closed_at_end"]].to_string(index=False))
+    print(pd.DataFrame(stats)[["sample", "bytes", "packet_records", "tcp_packets_processed", "flows_payload_gt0", "first_observed_not_client_syn", "no_fin_rst_in_sample"]].to_string(index=False))
     print(total.round(3).to_string(index=False))
     print(pd.DataFrame(single).round(3).to_string(index=False))
     print("DONE", out, flush=True)
