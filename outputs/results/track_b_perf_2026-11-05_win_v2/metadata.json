@@ -1,0 +1,96 @@
+{
+  "run_id": "2026-11-05_win_v2",
+  "flows_run_id": "2026-11-02_v1",
+  "runs": 5,
+  "warmup_runs": 1,
+  "single_n": 1000,
+  "single_warmup": 10,
+  "single_seed": 0,
+  "limit_total_s": 30.0,
+  "limit_single_p95_ms": 10.0,
+  "ks": [
+    5,
+    10
+  ],
+  "models": [
+    "rf",
+    "lgbm"
+  ],
+  "environment": {
+    "machine": "kyle-win",
+    "python": "3.12.14",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "packages": {
+      "scikit-learn": "1.6.1",
+      "numpy": "2.0.2",
+      "pandas": "2.2.2",
+      "lightgbm": "4.6.0"
+    },
+    "git_commit": "17749fb3632494ec37b7fb1592f5545a41688f31",
+    "git_dirty_src_tests": false,
+    "dependency_sha256": {
+      "src/track_b/https_unseen.py": "6d0d609e03060c5b70afa37c2cdbfa394701e156523435ac98db102f961e4bec",
+      "src/track_b/early_eval.py": "f9853f2b6ad22b832dd1f0994d07e8d9d2b660fe455953dd5ed7dc78dcfd3d83",
+      "src/track_b/https_robust.py": "e459e70f0e762216fa17b70a0b5ad1870de576e93875d51565dce27d1aba52a5",
+      "src/track_b/https_eval.py": "8ddee8292693759ae9b36e65e6ba4ee6c02fd8585c7ea1d25e4d20fcbc484dd0",
+      "src/track_b/https_flows.py": "24fd8ef6b0791facffa4aebe5211442b749449f37461caa795304751840e3e8f",
+      "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5",
+      "src/common/models.py": "5aaa4ea1c4b29e4f59db08e1c21935f565e7de2fd82e9e4471d5f8e337287598",
+      "src/common/experiment.py": "0820bc4888b4ebf70b6ae840257da7547237ae8bc4166ee834bfde5ada107bf1"
+    },
+    "rf_params": {
+      "bootstrap": true,
+      "ccp_alpha": 0.0,
+      "class_weight": "balanced",
+      "criterion": "gini",
+      "max_depth": null,
+      "max_features": "sqrt",
+      "max_leaf_nodes": null,
+      "max_samples": null,
+      "min_impurity_decrease": 0.0,
+      "min_samples_leaf": 1,
+      "min_samples_split": 2,
+      "min_weight_fraction_leaf": 0.0,
+      "monotonic_cst": null,
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "oob_score": false,
+      "random_state": 0,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "isolation_forest_params": {
+      "bootstrap": false,
+      "contamination": "auto",
+      "max_features": 1.0,
+      "max_samples": "auto",
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "random_state": 0,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "cpu": "Intel64 Family 6 Model 140 Stepping 2, GenuineIntel",
+    "logical_cpu_count": 8,
+    "single_predict_n_jobs_setting": 1,
+    "batch_predict_n_jobs_settings": [
+      1,
+      -1
+    ],
+    "train_rows": 4539,
+    "train_label_counts": {
+      "benign": 4139,
+      "bruteforce_https": 400
+    }
+  },
+  "single_rows_file": {
+    "path": "perf_runs/track_b_perf_2026-11-05_win_v2/single_flow_rows.csv.gz",
+    "sha256": "a481f273d4a8fb03c6efe21b5f29a13147e50a81aa88189f25703e96f18910c4"
+  },
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "code_sha256": {
+    "src/track_b/perf_measure.py": "2969435d1680bf080efa6d5ddb17f0a74b914d19572e24c550d5db5925230306",
+    "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5"
+  },
+  "note": "총 시간 = 조합마다 [파일 읽기 시작→조립→payload 필터→특징 생성→predict 종료] 연속 타이머. 모델 로드·학습은 측정 구간 밖. 판정 지연 = 앞 k개 도달 후 [특징 생성+단건 predict]; 도달 대기·pcap 파싱은 별도. 시료는 3개 pcap 앞부분 10MiB라 대표성이 제한적이며 서비스 지연(대시보드·네트워크)은 측정하지 않는다. 환경 의존 값"
+}
