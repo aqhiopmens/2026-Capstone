@@ -1,0 +1,109 @@
+{
+  "run_id": "mask3_2026-11-06_v1",
+  "flows_run_id": "2026-11-02_v1",
+  "xml_flows_run_id": "2026-10-31_v3",
+  "ns": [
+    0,
+    5,
+    10,
+    20,
+    50
+  ],
+  "ks": [
+    5,
+    10
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "inputs": [
+    "seq_mask3"
+  ],
+  "train_day": "2021-04-11",
+  "bundle_gap_s": 5.0,
+  "window_after_s": 600.0,
+  "window": [
+    1618589282.516307,
+    1618589964.4865732
+  ],
+  "common_test_rows": 31007,
+  "common_test_rows_sha256": "1fbb37b9463b9ff410a6242bfcdac371f1118d0d817b8f26e7c31e979123de60",
+  "common_test_rows_sha256_lf": "c3fa012ae59ef8065195e4840ce88f283f555969fdbbdfe5544914ecbcaa5889",
+  "common_test_rows_path": "predictions/track_b_https_b1_mask3_2026-11-06_v1/common_test_rows.csv",
+  "environment": {
+    "machine": "kyle-win",
+    "python": "3.12.14",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "packages": {
+      "scikit-learn": "1.6.1",
+      "numpy": "2.0.2",
+      "pandas": "2.2.2",
+      "lightgbm": "4.6.0"
+    },
+    "git_commit": "75462345f5f320eb74fe8625344ccf6133283c8c",
+    "git_dirty_src_tests": false,
+    "dependency_sha256": {
+      "src/track_b/https_unseen.py": "7a682a03aee0d6636c52bdccff17cb0bb76abc2f0f6a7fcb84a5632e77f7a919",
+      "src/track_b/early_eval.py": "6cb9fd64fbd064e83c7aaefbf62de3e4321ad55c822503d2643aa66217ddfbd6",
+      "src/track_b/https_robust.py": "e459e70f0e762216fa17b70a0b5ad1870de576e93875d51565dce27d1aba52a5",
+      "src/track_b/https_eval.py": "8ddee8292693759ae9b36e65e6ba4ee6c02fd8585c7ea1d25e4d20fcbc484dd0",
+      "src/track_b/https_flows.py": "24fd8ef6b0791facffa4aebe5211442b749449f37461caa795304751840e3e8f",
+      "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5",
+      "src/common/models.py": "5aaa4ea1c4b29e4f59db08e1c21935f565e7de2fd82e9e4471d5f8e337287598",
+      "src/common/experiment.py": "0820bc4888b4ebf70b6ae840257da7547237ae8bc4166ee834bfde5ada107bf1"
+    },
+    "rf_params": {
+      "bootstrap": true,
+      "ccp_alpha": 0.0,
+      "class_weight": "balanced",
+      "criterion": "gini",
+      "max_depth": null,
+      "max_features": "sqrt",
+      "max_leaf_nodes": null,
+      "max_samples": null,
+      "min_impurity_decrease": 0.0,
+      "min_samples_leaf": 1,
+      "min_samples_split": 2,
+      "min_weight_fraction_leaf": 0.0,
+      "monotonic_cst": null,
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "oob_score": false,
+      "random_state": 0,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "isolation_forest_params": {
+      "bootstrap": false,
+      "contamination": "auto",
+      "max_features": 1.0,
+      "max_samples": "auto",
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "random_state": 0,
+      "verbose": 0,
+      "warm_start": false
+    }
+  },
+  "test_definition": "04-16 flows with start_ts > window_end (합의한 창 이후). 창 시작 전 행과 창 안 행은 제외",
+  "before_window_rows_excluded": 105,
+  "predictions_files": {
+    "b1_support_roles.csv.gz": "4c8653b6253fa9986415f5b39d4ce3a42f34a8a44cf5d002cedafbf7d7d82af7",
+    "b1_test_predictions.csv.gz": "c9e131755a1e65f9c4e636c113ba83048fa9d852f484eca63017ccfc0b7fce76",
+    "common_test_rows.csv": "1fbb37b9463b9ff410a6242bfcdac371f1118d0d817b8f26e7c31e979123de60"
+  },
+  "excluded_88_81_attacks": 208,
+  "window_benign_rows": 1808,
+  "boundary_cross": {
+    "start_before_w0_and_end_ge_w0": 36,
+    "start_le_w1_and_end_gt_w1": 16
+  },
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "xml_flows_sha256": "56984701746445874599587ddc8f560ba016c576ca1f1e2592680b25ff314aa1",
+  "code_sha256": {
+    "src/track_b/https_unseen.py": "7a682a03aee0d6636c52bdccff17cb0bb76abc2f0f6a7fcb84a5632e77f7a919"
+  },
+  "note": "oracle 지원 N개 라벨(사람이 발견한 결과가 아님). 04-17 검증 문턱을 04-16에 적용하는 오프라인 전이 평가. 모든 N에 같은 시험 행. 탐색적 결과이며 같은 캠페인 반복 요청을 외운 효과가 일반화 근거가 아니다"
+}
