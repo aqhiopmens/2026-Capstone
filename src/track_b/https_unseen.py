@@ -24,7 +24,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.metrics import roc_auc_score
 
 from src.common.results import sha256_file
-from src.track_b.early_eval import prefix_features
+from src.track_b.early_eval import mask3, prefix_features
 from src.track_b.https_flows import ATTACK, BENIGN
 from src.track_b.https_robust import transform
 from src.track_b.pcap_flows import K_MAX
@@ -226,19 +226,21 @@ def b1_run(flows, k, kind, seed, split, ns=B1_NS):
     """N개의 .88.81 공격 라벨(oracle 지원)과 의심 칸 정상 소수를 학습에 추가했을 때 공통 시험의 recall·오탐. 학습 기준선은 04-11 단독."""
     from src.common.models import make_model
 
-    make = (lambda f: prefix_features(f, k, "seq")) if kind == "seq" else (lambda f: transform(f, k, "logb"))
+    # seq_mask3: IF의 정상 지원 행 선택·정책 점수는 원본 seq 기준으로 고정하고(안건 8 합의), RF 입력만 앞 3칸을 마스킹한다.
+    make_sel = (lambda f: prefix_features(f, k, "seq")) if kind in ("seq", "seq_mask3") else (lambda f: transform(f, k, "logb"))
+    make = (lambda f: mask3(make_sel(f))) if kind == "seq_mask3" else make_sel
     base = flows[flows.day == B1_TRAIN_DAY]
     benign = flows.label == BENIGN
     train_a = flows[benign & flows.day.isin(TRAIN_DAYS)]
     valid = flows[benign & (flows.day == VALID_DAY)]
-    iso = IsolationForest(n_estimators=100, random_state=seed, n_jobs=2).fit(make(train_a))
-    tau = budget_threshold(anomaly_scores(iso, make(valid)), *SUSPECT_BUDGET)["tau"]
+    iso = IsolationForest(n_estimators=100, random_state=seed, n_jobs=2).fit(make_sel(train_a))
+    tau = budget_threshold(anomaly_scores(iso, make_sel(valid)), *SUSPECT_BUDGET)["tau"]
     wb = split["window_benign"]
-    flagged_benign = wb[anomaly_scores(iso, make(wb)) > tau] if len(wb) else wb  # 사람이 의심 칸에서 확인한 정상(모든 N 공통)
+    flagged_benign = wb[anomaly_scores(iso, make_sel(wb)) > tau] if len(wb) else wb  # 사람이 의심 칸에서 확인한 정상(모든 N 공통)
     sa = split["support_attacks"]
     first50 = sa.head(max(ns))
     policy = dict(first50_attacks=len(first50),
-                  first50_flagged=int((anomaly_scores(iso, make(first50)) > tau).sum()),
+                  first50_flagged=int((anomaly_scores(iso, make_sel(first50)) > tau).sum()),
                   reviewed_benign=len(flagged_benign), window_benign=len(wb))
     test = split["test"]
     t_attack = test[(test.label == ATTACK) & (test.server_ip == NEW_VICTIM)]
@@ -248,9 +250,9 @@ def b1_run(flows, k, kind, seed, split, ns=B1_NS):
     rows, details = [], []
     roles = pd.concat([
         pd.DataFrame(dict(pcap=first50.pcap.to_numpy(), flow_id=first50.flow_id.to_numpy(), role="support_attack_order",
-                          order=np.arange(1, len(first50) + 1), score=anomaly_scores(iso, make(first50)))),
+                          order=np.arange(1, len(first50) + 1), score=anomaly_scores(iso, make_sel(first50)))),
         pd.DataFrame(dict(pcap=flagged_benign.pcap.to_numpy(), flow_id=flagged_benign.flow_id.to_numpy(), role="support_benign",
-                          order=0, score=anomaly_scores(iso, make(flagged_benign)) if len(flagged_benign) else np.array([])))],
+                          order=0, score=anomaly_scores(iso, make_sel(flagged_benign)) if len(flagged_benign) else np.array([])))],
         ignore_index=True).assign(kind=kind, k=k, seed=seed, tau=tau)
     groups_b = {"attack": t_attack, "a242": t_242, "benign": t_benign}
     for n in ns:
@@ -284,7 +286,7 @@ def b1_main(args):
         raise FileExistsError("기존 결과를 덮어쓰지 않습니다. 다른 run-id를 지정하세요")
     flows = load_flows(args.flows_run_id, args.xml_flows_run_id, DATA_DIR)
     split = b1_split(flows)
-    runs = [b1_run(flows, k, kind, seed, split) for kind in INPUTS for k in B1_KS for seed in SEEDS]
+    runs = [b1_run(flows, k, kind, seed, split) for kind in args.kinds for k in B1_KS for seed in SEEDS]
     result = pd.DataFrame([r for rows, _, _ in runs for r in rows])
     data_out = DATA_DIR / "predictions" / f"track_b_https_b1_{args.run_id}"
     data_out.mkdir(parents=True)
@@ -297,7 +299,7 @@ def b1_main(args):
     test_ids.to_csv(data_out / "common_test_rows.csv", index=False)  # 행별 분할은 DATA_DIR에만(저장소에는 행수·정의·SHA만)
     (out / "metadata.json").write_text(json.dumps(dict(
         run_id=args.run_id, flows_run_id=args.flows_run_id, xml_flows_run_id=args.xml_flows_run_id, ns=list(B1_NS), ks=list(B1_KS),
-        seeds=list(SEEDS), inputs=list(INPUTS), train_day=B1_TRAIN_DAY, bundle_gap_s=BUNDLE_GAP_S, window_after_s=WINDOW_AFTER_S,
+        seeds=list(SEEDS), inputs=list(args.kinds), train_day=B1_TRAIN_DAY, bundle_gap_s=BUNDLE_GAP_S, window_after_s=WINDOW_AFTER_S,
         window=list(split["window"]), common_test_rows=len(test_ids), common_test_rows_sha256=sha256_file(data_out / "common_test_rows.csv"),
         common_test_rows_sha256_lf=hashlib.sha256((data_out / "common_test_rows.csv").read_bytes().replace(b"\r\n", b"\n")).hexdigest(),
         common_test_rows_path=f"predictions/track_b_https_b1_{args.run_id}/common_test_rows.csv", environment=run_environment(root),
@@ -399,6 +401,7 @@ def main():
     b.add_argument("--flows-run-id", required=True)
     b.add_argument("--xml-flows-run-id", required=True)
     b.add_argument("--run-id", default=datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d_%H%M%S"))
+    b.add_argument("--kinds", nargs="+", default=list(INPUTS), choices=list(INPUTS) + ["seq_mask3"])
     r = sub.add_parser("suspect")
     r.add_argument("--flows-run-id", required=True)
     r.add_argument("--xml-flows-run-id", required=True)

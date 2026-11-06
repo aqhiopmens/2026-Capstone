@@ -21,7 +21,7 @@ import pandas as pd
 from scipy.stats import beta
 
 from src.common.results import sha256_file
-from src.track_b.early_eval import prefix_features
+from src.track_b.early_eval import mask3, prefix_features
 from src.track_b.https_flows import ATTACK, BENIGN
 from src.track_b.https_robust import transform
 from src.track_b.https_unseen import (B1_KS, B1_NS, B1_TRAIN_DAY, BUNDLE_GAP_S, INPUTS, SEEDS, SEQ_COLUMNS, WINDOW_AFTER_S,
@@ -95,6 +95,8 @@ def run_condition(base, flows, split, k, kind, seed, ns=B1_NS):
     from src.common.models import make_model
 
     make_x = (lambda f: prefix_features(f, k, "seq")) if kind == "seq" else (lambda f: transform(f, k, "logb"))
+    if kind == "seq_mask3":  # 앞 3칸 마스킹(안건 8). 지원 순서·공통 시험 행은 원본과 같다(입력에 의존하지 않음)
+        make_x = lambda f: mask3(prefix_features(f, k, "seq"))
     x_all = make_x(flows)
     pred_by_n = {}
     for n in ns:
@@ -147,6 +149,7 @@ def main():
     parser.add_argument("--flows-run-id")
     parser.add_argument("--flows-2022-run-id")
     parser.add_argument("--run-id", default=datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d_%H%M%S"))
+    parser.add_argument("--kinds", nargs="+", default=list(INPUTS), choices=list(INPUTS) + ["seq_mask3"])
     args = parser.parse_args()
     if args.metrics_of:
         return metrics_main(args.metrics_of)
@@ -165,7 +168,7 @@ def main():
     base = base[base.day == B1_TRAIN_DAY].reset_index(drop=True)
     flows = load_payload(p22).sort_values(["start_ts", "flow_id"]).reset_index(drop=True)
     split = split_2022(flows)
-    runs = [run_condition(base, flows, split, k, kind, seed) for kind in INPUTS for k in B1_KS for seed in SEEDS]
+    runs = [run_condition(base, flows, split, k, kind, seed) for kind in args.kinds for k in B1_KS for seed in SEEDS]
     result = pd.DataFrame([r for rows, _ in runs for r in rows])
     data_out.mkdir(parents=True)
     pd.concat([d for _, d in runs], ignore_index=True).to_csv(data_out / "eval2022_predictions.csv.gz", index=False)
@@ -181,7 +184,7 @@ def main():
     sup = split["support"]
     (out / "metadata.json").write_text(json.dumps(dict(
         run_id=args.run_id, flows_run_id=args.flows_run_id, flows_2022_run_id=args.flows_2022_run_id, ns=list(B1_NS), ks=list(B1_KS),
-        seeds=list(SEEDS), inputs=list(INPUTS), train_day=B1_TRAIN_DAY, train_rows=len(base), train_label_counts=base.label.value_counts().to_dict(),
+        seeds=list(SEEDS), inputs=list(args.kinds), train_day=B1_TRAIN_DAY, train_rows=len(base), train_label_counts=base.label.value_counts().to_dict(),
         flows_2022_rows_payload_gt0=len(flows), flows_2022_label_counts=flows.label.value_counts().to_dict(),
         bundle_gap_s=BUNDLE_GAP_S, window_after_s=WINDOW_AFTER_S, window=list(split["window"]),
         support_bundle_counts=pd.Series(split["bundle"][:max(B1_NS)]).nunique(), first50_victims=sup.head(50).server_ip.value_counts().to_dict(),

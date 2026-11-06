@@ -29,6 +29,7 @@ from src.track_b.early_eval import (DIRECTIONS, KS, LABELS, MODELS, SEEDS, SEQ_C
 from src.track_b.pcap_flows import K_MAX, PADDING_POLICY
 
 CONTROLS = ("mask_first", "shuffle", "abs")
+ALL_CONTROLS = CONTROLS + ("mask3",)  # mask3: seq_0~2 마스킹(안건 8). 기본 실행에는 포함하지 않는다(--controls로 지정)
 
 
 def control_features(flows, k, control, seed):
@@ -37,6 +38,8 @@ def control_features(flows, k, control, seed):
     values = x.to_numpy().copy()
     if control == "mask_first":
         values[:, 0] = 0
+    elif control == "mask3":
+        values[:, :3] = 0
     elif control == "abs":
         values = np.abs(values)
     elif control == "shuffle":
@@ -88,7 +91,7 @@ def load_baseline(root, base_run_id, flows):
     return base, meta
 
 
-def run_all(flows, base, workers=2):
+def run_all(flows, base, workers=2, controls=CONTROLS):
     from src.common.config import MACHINE
 
     flows = flows.reset_index(drop=True)
@@ -103,7 +106,7 @@ def run_all(flows, base, workers=2):
                                         np.where(flows.day == test_day, "test", "excluded")), index=flows.index)
         for k in KS:
             reached = (flows.payload_packets >= k).to_numpy()
-            for control in CONTROLS:
+            for control in controls:
                 for model in MODELS:
                     for seed in SEEDS:
                         x = control_features(flows, k, control, seed)
@@ -132,6 +135,7 @@ def main():
     parser.add_argument("--base-run-id", required=True)
     parser.add_argument("--run-id", default=datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d_%H%M%S"))
     parser.add_argument("--workers", type=int, default=2)
+    parser.add_argument("--controls", nargs="+", default=list(CONTROLS), choices=ALL_CONTROLS)
     args = parser.parse_args()
     from src.common.config import DATA_DIR
 
@@ -146,7 +150,7 @@ def main():
     base, base_meta = load_baseline(root, args.base_run_id, flows)
     if base_meta["flows_sha256"] != extract_meta["flows_sha256"]:
         raise ValueError("기준선과 통제 실험의 flows가 다릅니다")
-    metrics, deltas, predictions = run_all(flows, base, workers=args.workers)
+    metrics, deltas, predictions = run_all(flows, base, workers=args.workers, controls=tuple(args.controls))
     summary = summarize_runs(metrics)
     delta_summary = (deltas.groupby(["split", "k", "model", "control", "subset"])
                      [["macro_f1", "macro_f1_base", "delta_macro_f1", "delta_accuracy", "newly_wrong", "newly_right"]]
@@ -168,7 +172,7 @@ def main():
         git_commit=git("rev-parse", "HEAD"), git_dirty_src_tests=bool(git("status", "--porcelain", "--", "src", "tests")),
         versions=dict(sklearn=version("scikit-learn"), lightgbm=version("lightgbm"), numpy=version("numpy"),
                       pandas=version("pandas")), ks=list(KS), models=list(MODELS), seeds=list(SEEDS),
-        directions=[list(d) for d in DIRECTIONS], controls=list(CONTROLS), padding_policy=PADDING_POLICY,
+        directions=[list(d) for d in DIRECTIONS], controls=list(args.controls), padding_policy=PADDING_POLICY,
         runs=len(metrics),
         note="변형은 원본 앞 k개를 자른 뒤 적용. shuffle은 행 ID+모델 시드의 독립 순열. reached/short는 변형 전 "
              "payload_packets 기준. 단독 효과만 해석하며 조기 탐지 능력의 근거가 아니다"),

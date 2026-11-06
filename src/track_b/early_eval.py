@@ -47,6 +47,13 @@ def prefix_features(flows, k, kind):
     raise ValueError("알 수 없는 입력 종류")
 
 
+def mask3(x):
+    """앞 3칸(seq_0~2)만 0으로 둔 복사본. 열을 당기지 않고 0 패딩 위치는 유지한다(안건 8 확정안, '앞 3칸 마스킹')."""
+    y = x.copy()
+    y.iloc[:, :3] = 0
+    return y
+
+
 def subset_scores(actual, predicted, labels=LABELS):
     """고정 2클래스 기준. 부분집합에 없는 클래스의 recall은 NA, macro-F1은 zero_division=0."""
     actual, predicted = np.asarray(actual), np.asarray(predicted)
