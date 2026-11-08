@@ -1,13 +1,13 @@
-"""안건 12 통제 수집: 서버 3개(S1~S3) 구동, 클라이언트 러너, dumpcap 캡처, pcap 플로우-러너 로그 매칭.
+"""안건 12 통제 수집(사전 고정 문서 docs/track_b_collect_prereg.md 개정 3a 구현): 서버 3개, 러너(오케스트레이터), 캡처, 매칭.
 
-라벨은 러너 로그의 (client_ip, client_port, server_ip, server_port) + 시각에서만 가져온다.
-IP·서버로 라벨을 정하지 않는다. 자기 서버·자기 LAN에만 쓴다(외부 대상 없음).
+라벨은 러너 로그의 (client_ip, client_port, server_ip, server_port) + 시각에서만 가져온다. IP·서버로 라벨을 정하지 않는다.
+자기 서버·자기 LAN에만 쓴다(외부 대상 없음).
 
   certs   인증서 생성 (S1 RSA-2048 단일, S2 ECDSA P-256, S3 RSA-4096 2단 체인)
-  serve   서버 3개 구동 (기본 127.0.0.1, LAN 수집 때만 --bind 0.0.0.0)
-  run     클라이언트 러너 (정상·공격, requests·curl 번갈아). 연결마다 로그 한 줄
+  serve   서버 3개 구동 + 연결 수락 로그(독립 기준). 기본 127.0.0.1, LAN 수집 때만 --bind 0.0.0.0
+  run     오케스트레이터: 학습 단계 S1~S3 → 시험 단계 S1~S3, 라운드마다 칸(정상·공격 × requests·curl)당 10연결 쿼터
   capture dumpcap 래퍼 (classic pcap)
-  match   pcap 플로우 + 러너 로그 -> 라벨 붙은 flows.csv (시계 어긋남 보정)
+  match   pcap 플로우 + 러너 로그 + 서버 수락 로그 -> 라벨 붙은 flows.csv, 쿼터 검사, 칸별 보고
 """
 import argparse
 import csv
@@ -15,6 +15,7 @@ import datetime as dt
 import json
 import ssl
 import statistics
+import string
 import subprocess
 import sys
 import threading
@@ -23,9 +24,58 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 SERVERS = {"S1": 8443, "S2": 8444, "S3": 8445}
-USER, PASSWORD = "admin", "correct-horse-9"
+USER, PASSWORD = "admin", "Tz9k-Qm4Xb"  # 정답 암호는 10자(CORRECT_LEN)
+CORRECT_LEN = len(PASSWORD)
 DUMPCAP = r"C:\Program Files\Wireshark\dumpcap.exe"
 PAGE = b"<html><body><h1>Portal</h1><form method=post action=/login>user <input name=u> pass <input name=p type=password></form></body></html>"
+ALNUM = string.ascii_letters + string.digits
+
+# ---------- 사전 고정: 라운드 칸당 10연결 배정표 (문서 1절) ----------
+GET_FIRST_M, POST_FIRST_M = [2, 3, 4, 6], [2, 3, 4, 5]  # m≥2 첫 요청 GET 50% / POST 50%, m 다중집합 {1,1,2,2,3,3,4,4,5,6}
+FAIL_ONLY = {("GET", 4), ("POST", 3)}  # 정상 실패 전용 2/10
+CELL_SPECS = [("GET", 1), ("POST", 1)] + [("GET", m) for m in GET_FIRST_M] + [("POST", m) for m in POST_FIRST_M]
+BROWSE_PER_CELL = 2  # 정상 칸 참고 부분집합(subset=browse), 주 지표 제외
+
+
+def pw_len(m, i, last):
+    """암호 길이 배정표: 마지막 요청(POST)은 10자(정상 성공 암호와 공격 오답이 같은 길이), 그 밖은 6~14를 (m, 위치)로 결정."""
+    return CORRECT_LEN if last else 6 + ((3 * m + 5 * i) % 9)
+
+
+def episode_plan(cls, first, m):
+    """에피소드 하나의 요청 배정표. 반환 (ep_type, [dict(method, path, pw_len, expect_ok)]). 정상과 공격이 같은 (first, m)에서 같은 요청 종류·같은 길이를 갖는다."""
+    if m == 1 and first == "GET":
+        return "none", [dict(method="GET", path="/login", pw_len=None, expect_ok=False)]
+    ep_type = "failonly" if (cls == "normal" and (first, m) in FAIL_ONLY) else "success" if cls == "normal" else "fail"
+    reqs = [dict(method="GET", path="/login", pw_len=None, expect_ok=False)] if first == "GET" else []
+    for _ in range(m - len(reqs)):
+        i = len(reqs)
+        last = i == m - 1
+        reqs.append(dict(method="POST", path="/login", pw_len=pw_len(m, i, last), expect_ok=bool(last and ep_type == "success")))
+    return ep_type, reqs
+
+
+def browse_plan():
+    return "browse", [dict(method="GET", path="/", pw_len=None, expect_ok=False), dict(method="GET", path="/login", pw_len=None, expect_ok=False)]
+
+
+def password_for(req, rng):
+    if req["method"] != "POST":
+        return None
+    if req["expect_ok"]:
+        return PASSWORD
+    while True:
+        pw = "".join(rng.choice(ALNUM) for _ in range(req["pw_len"]))
+        if pw != PASSWORD:
+            return pw
+
+
+def round_episodes(rng):
+    """한 라운드의 모든 에피소드(칸당 10 + 정상 참고 2)를 시드 고정으로 섞는다. 항목: (cls, impl, first, m, subset)."""
+    eps = [(cls, impl, first, m, "main") for cls in ("normal", "attack") for impl in ("requests", "curl") for first, m in CELL_SPECS]
+    eps += [("normal", impl, 0, 0, "browse") for impl in ("requests", "curl") for _ in range(BROWSE_PER_CELL)]
+    rng.shuffle(eps)
+    return eps
 
 
 # ---------- 인증서 ----------
@@ -70,6 +120,19 @@ def make_certs(out):
         (out / f"{tag}.key").write_bytes(pem_key(key))
 
 
+# ---------- 로그 ----------
+class Log:
+    """JSONL 한 줄씩. 여러 스레드에서 안전."""
+
+    def __init__(self, path):
+        self.file, self.lock = open(path, "a", encoding="utf-8"), threading.Lock()
+
+    def write(self, **row):
+        with self.lock:
+            self.file.write(json.dumps(row) + "\n")
+            self.file.flush()
+
+
 # ---------- 서버 ----------
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -91,20 +154,38 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0))).decode()
         ok = f"u={USER}&p={PASSWORD}" == body
-        self.reply(200 if ok else 401, b"welcome" if ok else b"denied",
-                   [("Set-Cookie", "sid=1")] if ok else [])
+        self.reply(200 if ok else 401, b"welcome" if ok else b"denied", [("Set-Cookie", "sid=1")] if ok else [])
 
 
-def serve(certs, bind):
-    servers = []
+class TlsServer(ThreadingHTTPServer):
+    """TCP accept 직후(핸드셰이크 전) 수락 로그를 남기고, 핸드셰이크는 연결 스레드에서 한다(독립 기준 사건 = accept)."""
+
+    def __init__(self, addr, context, accept_log):
+        super().__init__(addr, Handler)
+        self.context, self.accept_log = context, accept_log
+
+    def get_request(self):
+        sock, addr = self.socket.accept()
+        if self.accept_log is not None:
+            self.accept_log.write(client_ip=addr[0], client_port=addr[1], server_port=self.server_address[1], t_accept=time.time())
+        return sock, addr
+
+    def finish_request(self, request, client_address):
+        try:
+            request = self.context.wrap_socket(request, server_side=True)
+        except (ssl.SSLError, OSError):
+            return
+        super().finish_request(request, client_address)
+
+
+def serve(certs, bind, accept_log_path=None):
+    accept_log = Log(accept_log_path) if accept_log_path else None
     for tag, port in SERVERS.items():
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = ssl.TLSVersion.TLSv1_3
         context.load_cert_chain(certs / f"{tag}.crt", certs / f"{tag}.key")
-        httpd = ThreadingHTTPServer((bind, port), Handler)
-        httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+        httpd = TlsServer((bind, port), context, accept_log)
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
-        servers.append(httpd)
         print(f"{tag} {bind}:{port}", flush=True)
     try:
         while True:
@@ -114,30 +195,14 @@ def serve(certs, bind):
 
 
 # ---------- 러너 ----------
-class Log:
-    """연결마다 한 줄: 4-튜플·시작 시각(연결 직전)·구현·클래스·서버. 여러 스레드에서 안전."""
-
-    def __init__(self, path, server):
-        self.file, self.server, self.lock = open(path, "a", encoding="utf-8"), server, threading.Lock()
-
-    def write(self, **row):
-        with self.lock:
-            self.file.write(json.dumps(dict(server=self.server, **row)) + "\n")
-            self.file.flush()
-
-
-def _ok(code):
-    return 200 <= int(code) < 300
-
-
-def requests_visit(log, host, port, cls, passwords, ep):
-    """requests 세션 하나 = 에피소드 하나. 세션을 끊고 나서야 다음 에피소드가 시작되므로 한 연결에 정상·공격이 섞이지 않는다.
-    연결 시점은 urllib3 connect 후킹으로 기록하고, 요청 수·성공/실패는 에피소드가 끝난 뒤 연결 행에 같이 쓴다."""
+def run_requests(host, port, reqs, rng, passwords):
+    """requests 세션 하나 = 에피소드 하나. 쿠키 저장을 끈다(정상에만 생기는 Cookie 헤더 비대칭 방지). 요청 사이 U(0.02,0.2)초."""
+    import http.cookiejar
     import requests
     import urllib3
     from urllib3.connection import HTTPSConnection
 
-    original, conns, codes = HTTPSConnection.connect, [], []
+    original, conns, out = HTTPSConnection.connect, [], []
 
     def connect(self):
         t0 = time.time()
@@ -151,72 +216,93 @@ def requests_visit(log, host, port, cls, passwords, ep):
         base = f"https://{host}:{port}"
         with requests.Session() as session:
             session.verify = False
-            for path in (["/", "/login"] if cls == "normal" else ["/login"]):
-                codes.append(session.get(base + path, timeout=10).status_code)
-            for password in passwords:
-                codes.append(session.post(base + "/login", data=dict(u=USER, p=password), timeout=10).status_code)
-                time.sleep(0.05 if cls == "normal" else 0)
+            session.cookies.set_policy(http.cookiejar.DefaultCookiePolicy(allowed_domains=[]))
+            for i, (req, pw) in enumerate(zip(reqs, passwords)):
+                if i:
+                    time.sleep(rng.uniform(0.02, 0.2))
+                resp = session.get(base + req["path"], timeout=10) if req["method"] == "GET" else \
+                    session.post(base + req["path"], data=dict(u=USER, p=pw), timeout=10)
+                out.append((resp.status_code, req["method"] == "POST" and resp.status_code == 200 and resp.content == b"welcome"))
     finally:
         HTTPSConnection.connect = original
-    for c in conns:  # 연결 재사용 여부는 episode_requests / conns_in_episode 로 사후 확인
-        log.write(**c, server_ip=host, server_port=port, impl="requests", cls=cls, episode=ep,
-                  conns_in_episode=len(conns), episode_requests=len(codes),
-                  episode_ok=sum(map(_ok, codes)), episode_fail=len(codes) - sum(map(_ok, codes)))
+    return conns, out
 
 
-def curl_call(log, host, port, cls, method, path, ep, n_calls, data=None):
-    """curl 호출 하나 = 연결 하나 = 요청 하나. 로컬 주소·응답 코드는 curl -w 로 받는다."""
-    cmd = ["curl", "-sk", "--ssl-no-revoke", "--tlsv1.3", "-o", "NUL" if sys.platform == "win32" else "/dev/null",
-           "-w", "%{local_ip} %{local_port} %{http_code}", f"https://{host}:{port}{path}"]
-    if method == "POST":
-        cmd += ["-d", data]
+def run_curl(host, port, reqs, rng, passwords):
+    """curl 한 번 호출 = 에피소드 하나(--next로 한 연결에 여러 요청, 지연 없이 연속). 로컬 주소·응답 코드·본문 크기는 -w로 받는다."""
+    null = "NUL" if sys.platform == "win32" else "/dev/null"
+    cmd = ["curl"]
+    for i, (req, pw) in enumerate(zip(reqs, passwords)):
+        if i:
+            cmd.append("--next")
+        # --next는 앞 요청의 옵션을 모두 초기화하므로 요청마다 같은 옵션을 다시 준다(연결은 같은 프로세스 안에서 재사용됨)
+        cmd += ["-sk", "--ssl-no-revoke", "--tlsv1.3", "-o", null, "-w", "%{local_ip} %{local_port} %{http_code} %{size_download}" + chr(10)]
+        if req["method"] == "POST":
+            cmd += ["-d", f"u={USER}&p={pw}"]
+        cmd.append(f"https://{host}:{port}{req['path']}")
     t0 = time.time()
-    out = subprocess.run(cmd, capture_output=True, text=True, timeout=20).stdout.split()
-    if len(out) == 3:
-        ok = _ok(out[2]) if out[2].isdigit() and int(out[2]) else False
-        log.write(client_ip=out[0], client_port=int(out[1]), server_ip=host, server_port=port, t_start=t0,
-                  impl="curl", cls=cls, episode=ep, conns_in_episode=n_calls, episode_requests=n_calls,
-                  http_code=out[2], ok=ok)
+    lines = [l.split() for l in subprocess.run(cmd, capture_output=True, text=True, timeout=30).stdout.strip().splitlines() if l.strip()]
+    conns, out = [], []
+    for (ip, cport, code, size), req in zip([l for l in lines if len(l) == 4], reqs):
+        if not any(c["client_port"] == int(cport) for c in conns):
+            conns.append(dict(client_ip=ip, client_port=int(cport), t_start=t0))
+        out.append((int(code), req["method"] == "POST" and code == "200" and size == "7"))
+    return conns, out
 
 
-def curl_visit(log, host, port, cls, passwords, ep):
-    calls = ([("GET", "/", None)] if cls == "normal" else []) + [("POST", "/login", f"u={USER}&p={p}") for p in passwords]
-    for method, path, data in calls:
-        curl_call(log, host, port, cls, method, path, ep, len(calls), data)
-        time.sleep(0.05 if cls == "normal" and method == "POST" else 0)
+def do_episode(impl, host, port, reqs, rng):
+    passwords = [password_for(r, rng) for r in reqs]
+    conns, res = (run_requests if impl == "requests" else run_curl)(host, port, reqs, rng, passwords)
+    return conns, res, passwords
 
 
-def passwords_for(cls, rng, attack_burst):
-    """정상: 올바른 로그인 앞에 오타 0~3회 + 몇 번 탐색. 공격: 목록 순서대로 attack_burst개(정답 없음)."""
-    if cls == "normal":
-        return [f"typo{rng.randint(0, 99)}" for _ in range(rng.choice([0, 0, 1, 2, 3]))] + [PASSWORD]
-    return [f"pw{rng.randint(0, 99999):05d}" for _ in range(attack_burst)]
+def run_phase(args, server, phase, rounds, rng, log, attempts):
+    """한 서버·한 단계: rounds 라운드. 에피소드=연결 1개가 아니거나 오류가 나면 제외하고 다시 수행(최대 3회), 모든 시도를 attempts에 남긴다."""
+    port, ep_no, last_end = SERVERS[server], 0, 0.0
+    for rnd in range(1, rounds + 1):
+        for cls, impl, first, m, subset in round_episodes(rng):
+            ep_type, reqs = browse_plan() if subset == "browse" else episode_plan(cls, first, m)
+            ep_no += 1
+            for attempt in range(1, 4):
+                t_ep = time.time()
+                try:
+                    conns, res, passwords = do_episode(impl, args.host, port, reqs, rng)
+                    reason = "" if len(conns) == 1 and len(res) == len(reqs) else f"conns={len(conns)} responses={len(res)}"
+                except Exception as exc:  # 연결 실패·시간 초과 등: 제외하고 재수행
+                    conns, res, passwords, reason = [], [], [], f"error:{type(exc).__name__}"
+                t_end = time.time()
+                key = dict(phase=phase, round=rnd, episode=ep_no, attempt=attempt, cls=cls, impl=impl, subset=subset, ep_type=ep_type, m=len(reqs),
+                           first=reqs[0]["method"], server_name=server)
+                attempts.write(**key, accepted=not reason, reason=reason, t_begin=t_ep, t_end=t_end, conns=len(conns))
+                time.sleep(rng.uniform(0.1, 0.5))  # 에피소드 사이 간격(모든 칸 동일)
+                if not reason:
+                    log.write(**key, client_ip=conns[0]["client_ip"], client_port=conns[0]["client_port"], server_ip=args.host, server_port=port,
+                              t_start=conns[0]["t_start"], t_end=t_end, conns_in_episode=1, episode_requests=len(reqs),
+                              kinds="".join(r["method"][0] for r in reqs), pw_lens=[None if p is None else len(p) for p in passwords],
+                              statuses=[r[0] for r in res], auth_ok=[r[1] for r in res])
+                    last_end = max(last_end, t_end)
+                    break
+    return last_end
 
 
 def run(args):
     import random
     rng = random.Random(args.seed)
-    log = Log(args.log, args.server)
-    port = SERVERS[args.server]
-    deadline = time.time() + args.minutes * 60
-    combos = [(c, i) for c in ("normal", "attack") for i in ("requests", "curl")]
-    n = ep = 0
-    while time.time() < deadline:
-        cls, impl = combos[n % 4]  # 같은 기기·IP에서 번갈아
-        n += 1
-        visit = requests_visit if impl == "requests" else curl_visit
-        if cls == "normal":  # 정상 방문 여러 번(클래스 간 연결 수 균형)
-            for _ in range(args.normal_visits):
-                ep += 1
-                visit(log, args.host, port, cls, passwords_for(cls, rng, 0), ep)
-        else:  # requests는 세션당 로그인 N회로 끊어 연결(=플로우) 수를 늘린다. curl은 원래 호출마다 새 연결
-            passwords = passwords_for(cls, rng, args.attack_burst)
-            step = args.logins_per_session if impl == "requests" else len(passwords)
-            for i in range(0, len(passwords), step):
-                ep += 1
-                visit(log, args.host, port, cls, passwords[i:i + step], ep)
-        time.sleep(rng.uniform(0.1, 1.0) if cls == "normal" else 0.1)
-    print(f"{args.server}: {n} rounds -> {args.log}", flush=True)
+    log, attempts = Log(args.log), Log(args.attempts)
+    last_end = {}
+    for phase, rounds in (("train", args.train_rounds), ("test", args.test_rounds)):
+        for server in SERVERS:
+            if phase == "test":  # 시험 직전: 그 서버의 마지막 학습·지원 에피소드 종료 + wait_after초까지 대기
+                wait = last_end[server] + args.wait_after - time.time()
+                print(f"{server} test: 학습 종료 후 {args.wait_after}초까지 {max(wait, 0):.0f}초 대기", flush=True)
+                if wait > 0:
+                    time.sleep(wait)
+            end = run_phase(args, server, phase, rounds, rng, log, attempts)
+            if phase == "train":
+                last_end[server] = end
+            print(f"{phase} {server}: 완료", flush=True)
+            time.sleep(args.pad)
+    print(f"run done -> {args.log}", flush=True)
 
 
 # ---------- 캡처 ----------
@@ -229,84 +315,153 @@ def capture(args):
 
 
 # ---------- 매칭 ----------
-def match(flows, logs, tolerance=1.0):
-    """flows: pcap_flows.Flow 목록, logs: 러너 로그 dict 목록.
+MIN_REF = 30  # 시계 offset 기준 연결 수 최소값(미달이면 파일럿 불합격, offset=0으로 대체하지 않음)
 
-    1) 4-튜플이 같은 후보를 찾고 2) 두 기기 시계 어긋남(offset=중앙값(flow.start_ts - t_start))을 추정한 뒤
-    3) 보정 후 시각 차이가 tolerance 초 이내인 가장 가까운 로그 하나를 쓴다. 로그는 한 번만 쓴다.
-    반환: (matched [(flow, log)], unmatched_flows, unmatched_logs, offset)
-    """
+
+def key4(row):
+    return row["client_ip"], row["client_port"], row["server_ip"], row["server_port"]
+
+
+def estimate_offset(logs, server_log, min_ref=MIN_REF):
+    """runner–server 정렬 offset = 중앙값(서버 accept 시각 − runner t_start). 시간 허용오차 필터 없이 (client_ip, client_port, server_port)가
+    양쪽에서 유일한 연결만 쓴다. 서로 다른 사건의 지연을 포함하므로 순수 시계 오차가 아니다. 반환 (offset, 잔차 리스트, 기준 연결 수)."""
+    def group(rows):
+        out = {}
+        for r in rows:
+            out.setdefault((r["client_ip"], r["client_port"], r["server_port"]), []).append(r)
+        return out
+    a, b = group(logs), group(server_log)
+    diffs = [b[k][0]["t_accept"] - a[k][0]["t_start"] for k in a if k in b and len(a[k]) == 1 and len(b[k]) == 1]
+    if len(diffs) < min_ref:
+        raise ValueError(f"파일럿 불합격: runner–server 기준 연결 {len(diffs)}개 < {min_ref} (offset=0으로 대체하지 않음)")
+    offset = statistics.median(diffs)
+    return offset, [d - offset for d in diffs], len(diffs)
+
+
+def match(flows, logs, offset, tolerance=1.0):
+    """flows: pcap_flows.Flow 목록(서버 시계), logs: 러너 로그, offset: runner→server 시계 보정.
+    같은 4-튜플이고 |flow.start_ts − (t_start+offset)| ≤ tolerance인 후보가 정확히 하나일 때만 매칭한다. 후보가 둘 이상이면 **모호**로 분리하고(임의 최근접 선택 금지),
+    로그 한 줄을 둘 이상의 플로우가 주장해도 모호로 둔다. 반환: (matched [(flow, log)], unmatched_flows, unmatched_logs, ambiguous [(flow, [logs])])."""
     by_key = {}
     for row in logs:
-        by_key.setdefault((row["client_ip"], row["client_port"], row["server_ip"], row["server_port"]), []).append(row)
-    pairs = [(flow, by_key[(flow.client_ip, flow.client_port, flow.server_ip, flow.server_port)])
-             for flow in flows if (flow.client_ip, flow.client_port, flow.server_ip, flow.server_port) in by_key]
-    unique = [flow.start_ts - rows[0]["t_start"] for flow, rows in pairs if len(rows) == 1]
-    offset = statistics.median(unique) if unique else 0.0
-    used, matched, unmatched = set(), [], []
-    for flow in flows:
-        rows = by_key.get((flow.client_ip, flow.client_port, flow.server_ip, flow.server_port), [])
-        best = min((r for r in rows if id(r) not in used),
-                   key=lambda r: abs(flow.start_ts - offset - r["t_start"]), default=None)
-        if best is not None and abs(flow.start_ts - offset - best["t_start"]) <= tolerance:
-            used.add(id(best))
-            matched.append((flow, best))
-        else:
+        by_key.setdefault(key4(row), []).append(row)
+    claims, cand_of = {}, {}
+    for idx, flow in enumerate(flows):
+        cands = [r for r in by_key.get((flow.client_ip, flow.client_port, flow.server_ip, flow.server_port), [])
+                 if abs(flow.start_ts - (r["t_start"] + offset)) <= tolerance]
+        cand_of[idx] = cands
+        for r in cands:
+            claims.setdefault(id(r), []).append(idx)
+    matched, unmatched, ambiguous, used = [], [], [], set()
+    for idx, flow in enumerate(flows):
+        cands = cand_of[idx]
+        if not cands:
             unmatched.append(flow)
-    return matched, unmatched, [r for r in logs if id(r) not in used], offset
+        elif len(cands) > 1 or len(claims[id(cands[0])]) > 1:
+            ambiguous.append((flow, cands))
+            used.update(id(r) for r in cands)
+        else:
+            matched.append((flow, cands[0]))
+            used.add(id(cands[0]))
+    return matched, unmatched, [r for r in logs if id(r) not in used], ambiguous
 
 
-def breakdown(logs, matched=(), offset=0.0):
-    """(cls, impl)별 분모: 로그 연결 수·에피소드 수·요청 수·성공/실패·매칭 수·미매칭 수·시각 오차 최댓값(보정 후, 초).
-    요청 수는 에피소드 값을 그 에피소드 연결 수로 나눠 연결마다 더한 것이다(재연결이 있어도 에피소드 합이 보존된다)."""
+def first_request_index(seq):
+    """첫 HTTP 요청의 패킷 위치 **후보** 방법: ClientHello(seq_0) 뒤 첫 양수 칸 = 클라이언트 Finished, 그다음 양수 칸 = 첫 요청 후보.
+    구현·서버에 따라 티켓/요청 순서가 바뀌므로 확정이 아니다. 찾지 못하면 None(미확인)."""
+    pos = [i for i, v in enumerate(list(seq)) if i >= 1 and v > 0]
+    return pos[1] if len(pos) >= 2 else None
+
+
+def check_quota(rows):
+    """주(main) 연결 쿼터·배정표 일치 검사. 라운드·서버·단계·칸마다 10연결, 정상 7/2/1, 같은 (first,m)에서 클래스 간 요청 종류·암호 길이 동일. 위반 목록 반환."""
+    bad, cells, plans = [], {}, {}
+    for r in rows:
+        if r.get("subset") != "main":
+            continue
+        cells.setdefault((r["server_name"], r["phase"], r["round"], r["impl"], r["cls"]), []).append(r)
+        plans.setdefault((r["cls"], r["first"], r["m"]), set()).add((r["kinds"], tuple(r["pw_lens"])))
+    for k, rs in cells.items():
+        if len(rs) != 10:
+            bad.append(f"{k}: 연결 {len(rs)} != 10")
+        if sorted(r["m"] for r in rs) != sorted([1, 1, 2, 2, 3, 3, 4, 4, 5, 6]):
+            bad.append(f"{k}: m 다중집합 불일치")
+        if k[4] == "normal":
+            n = {t: sum(r["ep_type"] == t for r in rs) for t in ("success", "failonly", "none")}
+            if n != {"success": 7, "failonly": 2, "none": 1}:
+                bad.append(f"{k}: 정상 구성 {n} != 7/2/1")
+    for (cls, first, m), sig in plans.items():
+        other = plans.get(("attack" if cls == "normal" else "normal", first, m))
+        if other is not None and sig != other:
+            bad.append(f"({first},{m}): 정상·공격 요청 종류/암호 길이 배정이 다름")
+        if len(sig) != 1:
+            bad.append(f"({cls},{first},{m}): 배정표가 한 가지가 아님")
+    return bad
+
+
+def breakdown(logs, matched=(), ambiguous=(), offset=0.0):
+    """(cls, impl, subset)별 분모: 연결 수·에피소드 수·요청 수·인증 성공/실패·매칭·모호·미매칭·시각 오차 최댓값(보정 후, 초)·손실 비율."""
     hit = {id(r): flow for flow, r in matched}
+    amb = {id(r) for _, rs in ambiguous for r in rs}
     out = {}
     for r in logs:
-        d = out.setdefault(f"{r['cls']}/{r['impl']}", dict(conns=0, episodes=set(), requests=0.0, ok=0.0, fail=0.0,
-                                                           matched=0, unmatched=0, max_resid_s=0.0))
-        share = 1 / r.get("conns_in_episode", 1)
+        d = out.setdefault(f"{r['cls']}/{r['impl']}/{r.get('subset', 'main')}", dict(conns=0, episodes=set(), requests=0, auth_ok=0, auth_fail=0,
+                                                                                     matched=0, ambiguous=0, unmatched=0, max_resid_s=0.0))
         d["conns"] += 1
         d["episodes"].add(r.get("episode"))
-        d["requests"] += r.get("episode_requests", 1) * share
-        if "episode_ok" in r:
-            d["ok"] += r["episode_ok"] * share
-            d["fail"] += r["episode_fail"] * share
-        else:
-            d["ok"] += bool(r.get("ok"))
-            d["fail"] += not r.get("ok")
+        d["requests"] += r.get("episode_requests", 1)
+        posts = [k == "P" for k in r.get("kinds", "")]
+        d["auth_ok"] += sum(bool(ok) for ok, p in zip(r.get("auth_ok", []), posts) if p)
+        d["auth_fail"] += sum(not ok for ok, p in zip(r.get("auth_ok", []), posts) if p)
         if id(r) in hit:
             d["matched"] += 1
-            d["max_resid_s"] = max(d["max_resid_s"], abs(hit[id(r)].start_ts - offset - r["t_start"]))
+            d["max_resid_s"] = max(d["max_resid_s"], abs(hit[id(r)].start_ts - (r["t_start"] + offset)))
+        elif id(r) in amb:
+            d["ambiguous"] += 1
         else:
             d["unmatched"] += 1
     for d in out.values():
         d["episodes"] = len(d["episodes"])
-        d.update({k: round(d[k], 3) for k in ("requests", "ok", "fail", "max_resid_s")})
+        d["max_resid_s"] = round(d["max_resid_s"], 3)
         d["requests_per_conn"] = round(d["requests"] / d["conns"], 2)
+        d["lost_frac"] = round((d["ambiguous"] + d["unmatched"]) / d["conns"], 4)  # 칸별 (모호+미매칭) 비율: 파일럿 합격 ≤0.02
     return out
+
+
+def read_jsonl(paths):
+    return [json.loads(line) for path in paths for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def match_main(args):
     from src.track_b.pcap_flows import K_MAX, assemble_flows
     flows, _, _ = assemble_flows(args.pcap, ports=tuple(SERVERS.values()))
-    logs = [json.loads(line) for path in args.logs for line in Path(path).read_text(encoding="utf-8").splitlines()]
-    matched, unmatched_flows, unmatched_logs, offset = match(flows, logs, args.tolerance)
-    fields = ["server", "cls", "impl", "client_ip", "client_port", "server_ip", "server_port", "start_ts",
-              "payload_packets", "midstream"] + [f"seq_{i}" for i in range(K_MAX)]
+    logs, server_log = read_jsonl(args.logs), read_jsonl([args.server_log])
+    offset, resid, n_ref = estimate_offset(logs, server_log, args.min_ref)
+    matched, unmatched_flows, unmatched_logs, ambiguous = match(flows, logs, offset, args.tolerance)
+    accept = {(r["client_ip"], r["client_port"], r["server_port"]): r["t_accept"] for r in server_log}
+    lag = [flow.start_ts - accept[(flow.client_ip, flow.client_port, flow.server_port)] for flow, _ in matched
+           if (flow.client_ip, flow.client_port, flow.server_port) in accept]
+    fields = ["server", "cls", "impl", "subset", "ep_type", "phase", "round", "episode", "client_ip", "client_port", "server_ip", "server_port", "start_ts",
+              "payload_packets", "midstream", "first_req_idx"] + [f"seq_{i}" for i in range(K_MAX)]
     with open(args.out, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         for flow, row in matched:
             seq = list(flow.seq) + [0] * (K_MAX - len(flow.seq))
-            writer.writerow(dict(server=row["server"], cls=row["cls"], impl=row["impl"], client_ip=flow.client_ip,
-                                 client_port=flow.client_port, server_ip=flow.server_ip, server_port=flow.server_port,
-                                 start_ts=flow.start_ts, payload_packets=flow.payload_packets,
-                                 midstream=int(flow.midstream), **{f"seq_{i}": seq[i] for i in range(K_MAX)}))
-    report = dict(flows=len(flows), logs=len(logs), matched=len(matched), unmatched_flows=len(unmatched_flows),
-                  unmatched_logs=len(unmatched_logs), by_label=breakdown(logs, matched, offset), clock_offset_s=round(offset, 4), tolerance_s=args.tolerance,
-                  created=dt.datetime.now().isoformat(timespec="seconds"))
-    Path(args.out).with_suffix(".match.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(report, flush=True)
+            idx = first_request_index(flow.seq)
+            writer.writerow(dict(server=row["server_name"], cls=row["cls"], impl=row["impl"], subset=row["subset"], ep_type=row["ep_type"], phase=row["phase"],
+                                 round=row["round"], episode=row["episode"], client_ip=flow.client_ip, client_port=flow.client_port, server_ip=flow.server_ip,
+                                 server_port=flow.server_port, start_ts=flow.start_ts, payload_packets=flow.payload_packets, midstream=int(flow.midstream),
+                                 first_req_idx="" if idx is None else idx, **{f"seq_{i}": seq[i] for i in range(K_MAX)}))
+    p99 = lambda xs: sorted(abs(x) for x in xs)[min(len(xs) - 1, int(0.99 * len(xs)))] if xs else None
+    report = dict(flows=len(flows), runner_rows=len(logs), server_log_rows=len(server_log), matched=len(matched), unmatched_flows=len(unmatched_flows),
+                  unmatched_logs=len(unmatched_logs), ambiguous=len(ambiguous), by_label=breakdown(logs, matched, ambiguous, offset),
+                  clock=dict(offset_runner_to_server_s=round(offset, 4), ref_connections=n_ref, resid_mad_s=round(statistics.median(abs(r) for r in resid), 4),
+                             resid_p99_s=round(p99(resid), 4), note="필터 전 유일 대응 연결 기준. 서로 다른 사건(accept vs connect 직전)의 지연을 포함하므로 순수 시계오차가 아님"),
+                  pcap_minus_accept_s=dict(median=round(statistics.median(lag), 4) if lag else None, p99=round(p99(lag), 4) if lag else None),
+                  quota_violations=check_quota(logs), tolerance_s=args.tolerance, created=dt.datetime.now().isoformat(timespec="seconds"))
+    Path(args.out).with_suffix(".match.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + chr(10), encoding="utf-8")
+    print(json.dumps(report, ensure_ascii=False), flush=True)
 
 
 def main():
@@ -317,14 +472,15 @@ def main():
     p = sub.add_parser("serve")
     p.add_argument("--certs", type=Path, required=True)
     p.add_argument("--bind", default="127.0.0.1")
+    p.add_argument("--accept-log", type=Path, help="연결 수락 로그(JSONL). 매칭의 독립 기준")
     p = sub.add_parser("run")
     p.add_argument("--host", required=True)
-    p.add_argument("--server", choices=SERVERS, required=True)
-    p.add_argument("--log", type=Path, required=True)
-    p.add_argument("--minutes", type=float, default=15)
-    p.add_argument("--attack-burst", type=int, default=25)
-    p.add_argument("--normal-visits", type=int, default=8)
-    p.add_argument("--logins-per-session", type=int, default=5)
+    p.add_argument("--log", type=Path, required=True, help="러너 로그(accepted 에피소드, 연결 1개당 한 줄)")
+    p.add_argument("--attempts", type=Path, required=True, help="전체 시도 기록(제외·재수행 포함)")
+    p.add_argument("--train-rounds", type=int, default=30)
+    p.add_argument("--test-rounds", type=int, default=10)
+    p.add_argument("--wait-after", type=float, default=660, help="시험 직전 대기: 그 서버 마지막 학습 에피소드 종료 + 이 초")
+    p.add_argument("--pad", type=float, default=60, help="단계 사이 대기(초)")
     p.add_argument("--seed", type=int, default=0)
     p = sub.add_parser("capture")
     p.add_argument("--iface", required=True, help="dumpcap -D 의 번호 또는 이름")
@@ -333,10 +489,12 @@ def main():
     p = sub.add_parser("match")
     p.add_argument("--pcap", type=Path, required=True)
     p.add_argument("--logs", type=Path, nargs="+", required=True)
+    p.add_argument("--server-log", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--tolerance", type=float, default=1.0)
+    p.add_argument("--min-ref", type=int, default=MIN_REF)
     args = parser.parse_args()
-    {"certs": lambda: make_certs(args.out), "serve": lambda: serve(args.certs, args.bind), "run": lambda: run(args),
+    {"certs": lambda: make_certs(args.out), "serve": lambda: serve(args.certs, args.bind, args.accept_log), "run": lambda: run(args),
      "capture": lambda: capture(args), "match": lambda: match_main(args)}[args.cmd]()
 
 
