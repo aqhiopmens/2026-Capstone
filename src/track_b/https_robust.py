@@ -60,9 +60,9 @@ def paired_tables(subsets, summary, root):
     for m in metrics:
         delta[f"d_{m}"] = delta[f"{m}_new"] - delta[f"{m}_seq"]
     delta = delta[delta.subset.isin(PAIR_SUBSETS)]
-    summary = summary.assign(k=summary.feature_group.str.extract(r"k(\d+)").astype(int)[0],
+    summary = summary.assign(k=summary.feature_group.str.extract(r"_k(\d+)$").astype(int)[0],
                              feature_kind=summary.feature_group.str.split("_").str[0])
-    base_summary = base_summary.assign(k=base_summary.feature_group.str.extract(r"k(\d+)").astype(int)[0],
+    base_summary = base_summary.assign(k=base_summary.feature_group.str.extract(r"_k(\d+)$").astype(int)[0],
                                        feature_kind=base_summary.feature_group.str.split("_").str[0])
     base_summary = base_summary[base_summary.feature_kind == "seq"]
     dsum = summary.merge(base_summary, on=["split", "k", "model"], suffixes=("_new", "_seq"))

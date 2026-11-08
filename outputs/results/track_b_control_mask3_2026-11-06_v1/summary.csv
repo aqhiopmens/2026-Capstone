@@ -1,0 +1,9 @@
+track,experiment,split,feature_group,model,machine,sklearn,lightgbm,torch,macro_f1_mean,macro_f1_std,accuracy_mean,accuracy_std,runs
+B,early_control,time_0412to0417,mask3_k5,rf,kyle-win,1.6.1,4.6.0,,0.9954674236539361,0.0,0.9954853273137697,0.0,3
+B,early_control,time_0412to0417,mask3_k5,lgbm,kyle-win,1.6.1,4.6.0,,0.9955866357465174,0.0,0.9956041344897232,0.0,3
+B,early_control,time_0412to0417,mask3_k10,rf,kyle-win,1.6.1,4.6.0,,0.9995225586364587,0.00041347634964419405,0.9995247712961862,0.00041156013011026755,3
+B,early_control,time_0412to0417,mask3_k10,lgbm,kyle-win,1.6.1,4.6.0,,0.9982098546597085,0.0,0.9982178923606986,0.0,3
+B,early_control,time_0417to0412,mask3_k5,rf,kyle-win,1.6.1,4.6.0,,0.9920180312824597,0.0,0.9924194567277321,0.0,3
+B,early_control,time_0417to0412,mask3_k5,lgbm,kyle-win,1.6.1,4.6.0,,0.9920180312824597,0.0,0.9924194567277321,0.0,3
+B,early_control,time_0417to0412,mask3_k10,rf,kyle-win,1.6.1,4.6.0,,1.0,0.0,1.0,0.0,3
+B,early_control,time_0417to0412,mask3_k10,lgbm,kyle-win,1.6.1,4.6.0,,0.9996662543864726,0.0,0.9996841440303221,0.0,3

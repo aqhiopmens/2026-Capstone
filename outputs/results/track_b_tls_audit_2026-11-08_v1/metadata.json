@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-11-08_v1",
+  "seed": 0,
+  "per_group": 5,
+  "window_s": 1200.0,
+  "min_payload": 10,
+  "first_n": 8,
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "flows_2022_sha256": "13fd232978359f027bf83fed327e31f939f70e5ded73ab0ebdb87d1bd0440894",
+  "code_sha256": {
+    "src/track_b/tls_audit.py": "4dcd36af7f6fbdb3b86b8730b828655751266d023bf9892ec4996f549b597361"
+  },
+  "flows_selected": 25,
+  "identified": 25,
+  "note": "표본 20~25개(첫 공격 후 20분 창, 고정 시드). 레코드 해석은 방향별 재조립 바이트의 TLS 헤더 기준이며 길이 일치만으로 메시지 종류를 확정하지 않는다. 표본이 작고 시간 창이 한정돼 대표성이 제한적이다"
+}

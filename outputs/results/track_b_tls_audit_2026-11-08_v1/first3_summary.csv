@@ -1,0 +1,16 @@
+group,idx,packets,boundary_start,records_top
+2021-04-11_attack_242104,0,5,5,{'Handshake[ClientHello]': 5}
+2021-04-11_attack_242104,1,5,5,{'Handshake[ServerHello]; ChangeCipherSpec; AppData; AppData(이어짐)': 5}
+2021-04-11_attack_242104,2,5,0,{'AppData; AppData; AppData; AppData': 5}
+2021-04-11_benign,0,5,5,{'Handshake[ClientHello]': 5}
+2021-04-11_benign,1,5,5,"{'Handshake[ServerHello]; ChangeCipherSpec; AppData; AppData(이어짐)': 2, 'Handshake[ServerHello]; ChangeCipherSpec; AppData': 1}"
+2021-04-11_benign,2,5,3,"{'AppData; AppData; AppData': 2, 'ChangeCipherSpec; AppData': 2}"
+2021-04-16_attack_242104,0,5,5,{'Handshake[ClientHello]': 5}
+2021-04-16_attack_242104,1,5,5,"{'Handshake[ServerHello]; ChangeCipherSpec; AppData; AppData(이어짐)': 3, '해석 불가(레코드 밖)': 2}"
+2021-04-16_attack_242104,2,5,2,"{'AppData; AppData; AppData; AppData': 3, '해석 불가(레코드 밖)': 2}"
+2021-04-16_attack_88_81,0,5,5,{'Handshake[ClientHello]': 5}
+2021-04-16_attack_88_81,1,5,5,"{'Handshake[ServerHello]; ChangeCipherSpec; AppData; AppData(이어짐)': 4, '해석 불가(레코드 밖)': 1}"
+2021-04-16_attack_88_81,2,5,1,"{'AppData; AppData; AppData': 3, '해석 불가(레코드 밖)': 1}"
+2022-04-10_attack_2022,0,5,5,{'Handshake[ClientHello]': 5}
+2022-04-10_attack_2022,1,5,5,{'Handshake[ServerHello]; ChangeCipherSpec; AppData; AppData(이어짐)': 5}
+2022-04-10_attack_2022,2,5,0,{'AppData; AppData; AppData; AppData': 5}

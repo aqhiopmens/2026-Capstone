@@ -1,0 +1,63 @@
+{
+  "run_id": "2026-11-06_v2",
+  "flows_run_id": "2026-11-02_v1",
+  "audit_run_id": "2026-11-02_v2",
+  "baseline": "track_b_https_eval_2026-11-04_colab",
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "flow_status_sha256": "faf32e66c8968d9672f529e0196895546f92d84bc2a4b95331dd501c50ff88cb",
+  "baseline_summary_sha256": "b1354968d04dee9ec2f6a45a104410fd17e6256b43a40babe0f4b28977a919cf",
+  "baseline_subsets_sha256": "bacf8923bd755f24b388ce1da20daf1a12139ce030950d68189be8531250eca3",
+  "predictions_sha256": "e86423034660e7e7a7b146dae3d51d1880ee93efed3ee677481ff1715f6f9c06",
+  "code_sha256": {
+    "src/track_b/mask3.py": "b70e891c87730fc056893184b80032ea456a6cbdf21c13d2978bccb0dc045fae",
+    "src/track_b/https_robust.py": "f74148c879e5ebf7efed3c8b654ce57b2cfe53deda63c33c848c0a07b320a573",
+    "src/track_b/https_eval.py": "8ddee8292693759ae9b36e65e6ba4ee6c02fd8585c7ea1d25e4d20fcbc484dd0",
+    "src/track_b/early_eval.py": "6cb9fd64fbd064e83c7aaefbf62de3e4321ad55c822503d2643aa66217ddfbd6",
+    "src/common/experiment.py": "0820bc4888b4ebf70b6ae840257da7547237ae8bc4166ee834bfde5ada107bf1",
+    "src/common/models.py": "5aaa4ea1c4b29e4f59db08e1c21935f565e7de2fd82e9e4471d5f8e337287598"
+  },
+  "git_commit": "a9bf5c393e09ba8aa1446ae071e54d828fa6164f",
+  "git_dirty_src_tests": false,
+  "versions": {
+    "sklearn": "1.6.1",
+    "lightgbm": "4.6.0",
+    "numpy": "2.0.2",
+    "pandas": "2.2.2"
+  },
+  "ks": [
+    5,
+    10,
+    20,
+    30
+  ],
+  "models": [
+    "rf",
+    "lgbm"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "directions": [
+    [
+      "2021-04-11",
+      "2021-04-16"
+    ],
+    [
+      "2021-04-16",
+      "2021-04-11"
+    ]
+  ],
+  "scopes": [
+    "all",
+    "only_242104"
+  ],
+  "kinds": [
+    "seq_mask3"
+  ],
+  "padding_policy": "trailing_zero_30",
+  "runs": 96,
+  "big_delta": 0.05,
+  "note": "앞 3칸 마스킹. 같은 분할·행·시드·k에서 원본(저장된 Colab 최종)과 짝 비교. 관측 범위이며 인과·식별자 단정 금지. C1(같은 분포)과 새 피해자(.88.81)는 서브셋에서 구분"
+}

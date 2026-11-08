@@ -1,0 +1,51 @@
+{
+  "run_id": "mask3_2026-11-06_v1",
+  "flows_run_id": "2026-10-31_v3",
+  "base_run_id": "2026-10-31_v3",
+  "flows_sha256": "56984701746445874599587ddc8f560ba016c576ca1f1e2592680b25ff314aa1",
+  "base_predictions_sha256": "54dcaf1cbd33778e386d6e198dfefe4233fec24c7774d84b66bc9543b5ec61e2",
+  "predictions_sha256": "760b7014dc4f70a27ec24bb9bbffb4993a03334faaca48e97ad81932402ee503",
+  "code_sha256": {
+    "src/track_b/early_controls.py": "1e76ad04d04fc205eba88494804e17a98821423811d03935bccaabe77e0fefa9",
+    "src/track_b/early_eval.py": "6cb9fd64fbd064e83c7aaefbf62de3e4321ad55c822503d2643aa66217ddfbd6",
+    "src/common/experiment.py": "0820bc4888b4ebf70b6ae840257da7547237ae8bc4166ee834bfde5ada107bf1",
+    "src/common/models.py": "5aaa4ea1c4b29e4f59db08e1c21935f565e7de2fd82e9e4471d5f8e337287598"
+  },
+  "git_commit": "75462345f5f320eb74fe8625344ccf6133283c8c",
+  "git_dirty_src_tests": false,
+  "versions": {
+    "sklearn": "1.6.1",
+    "lightgbm": "4.6.0",
+    "numpy": "2.0.2",
+    "pandas": "2.2.2"
+  },
+  "ks": [
+    5,
+    10
+  ],
+  "models": [
+    "rf",
+    "lgbm"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "directions": [
+    [
+      "2021-04-12",
+      "2021-04-17"
+    ],
+    [
+      "2021-04-17",
+      "2021-04-12"
+    ]
+  ],
+  "controls": [
+    "mask3"
+  ],
+  "padding_policy": "trailing_zero_30",
+  "runs": 24,
+  "note": "변형은 원본 앞 k개를 자른 뒤 적용. shuffle은 행 ID+모델 시드의 독립 순열. reached/short는 변형 전 payload_packets 기준. 단독 효과만 해석하며 조기 탐지 능력의 근거가 아니다"
+}
