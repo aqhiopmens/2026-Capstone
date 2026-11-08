@@ -2,8 +2,8 @@ import random
 
 import pytest
 
-from src.track_b.collect import (CELL_SPECS, CORRECT_LEN, PASSWORD, check_quota, episode_plan, estimate_offset, first_request_index, match,
-                                 password_for, round_episodes)
+from src.track_b.collect import (CELL_SPECS, CORRECT_LEN, PASSWORD, check_quota, episode_plan, episode_problem, estimate_offset, first_request_index,
+                                 group_offsets, match, password_for, round_episodes)
 from src.track_b.pcap_flows import Flow
 
 
@@ -42,11 +42,14 @@ def test_round_has_10_per_cell_plus_browse_and_check_quota():
     rows = []
     for ep_no, (cls, impl, first, m, subset) in enumerate(main):
         ep_type, reqs = episode_plan(cls, first, m)
-        rows.append(dict(server_name="S1", phase="train", round=1, impl=impl, cls=cls, subset="main", ep_type=ep_type, m=m, first=first,
-                         kinds="".join(r["method"][0] for r in reqs), pw_lens=[r["pw_len"] for r in reqs]))
+        rows.append(dict(server_name="S1", phase="train", round=1, impl=impl, cls=cls, subset="main", ep_type=ep_type, m=m, first=first, episode=ep_no,
+                         kinds="".join(r["method"][0] for r in reqs), pw_lens=[r["pw_len"] for r in reqs], auth_ok=[r["expect_ok"] for r in reqs]))
     assert check_quota(rows) == []
     rows[0]["pw_lens"] = [99]
     assert check_quota(rows)  # 배정표가 어긋나면 위반으로 잡힌다
+    rows[0]["pw_lens"] = [r["pw_len"] for r in episode_plan(rows[0]["cls"], rows[0]["first"], rows[0]["m"])[1]]
+    rows[0]["auth_ok"] = [not x for x in rows[0]["auth_ok"]]
+    assert any("인증 결과" in v for v in check_quota(rows))  # 인증 결과가 배정과 다르면 위반
 
 
 def test_match_uses_offset_and_separates_ambiguous():
@@ -74,3 +77,22 @@ def test_estimate_offset_fails_without_enough_reference():
 def test_first_request_index_candidate_or_unconfirmed():
     assert first_request_index([517, -1286, 80, -255, -255, 300, -135]) == 5  # Finished(80) 다음 양수 = 요청 후보
     assert first_request_index([517, -1286, 80, -255]) is None  # 요청이 앞 k개에 없으면 미확인
+
+
+def test_episode_problem_rejects_bad_status_auth_and_curl_failure():
+    _, reqs = episode_plan("normal", "POST", 2)  # POST 실패 → POST 성공
+    conn = [dict(client_ip="a", client_port=1, t_start=0.0)]
+    assert episode_problem(reqs, conn, [(401, False), (200, True)]) == ""
+    assert "auth" in episode_problem(reqs, conn, [(401, False), (401, False)])  # 성공이어야 할 요청이 실패
+    assert "status" in episode_problem(reqs, conn, [(000, False), (200, True)])  # 연결 후 상태 000
+    assert "conns=2" in episode_problem(reqs, conn * 2, [(401, False), (200, True)])  # 재연결
+    assert "rc=" in episode_problem(reqs, conn, [(401, False), (200, True)], note="rc=60 cert")
+
+
+def test_group_offsets_per_phase_server_and_insufficient_reference():
+    logs = [dict(row(p, float(p)), phase="train", server_name="S1", impl="curl", round=1) for p in range(50000, 50040)]
+    server = [dict(client_ip="10.0.0.2", client_port=p, server_port=8443, t_accept=float(p) + 2.0) for p in range(50000, 50040)]
+    out = group_offsets(logs, server, min_ref=30)
+    assert round(out[("train", "S1")]["offset"], 3) == 2.0 and out[("train", "S1")]["n"] == 40
+    with pytest.raises(ValueError):
+        group_offsets(logs[:10], server[:10], min_ref=30)
