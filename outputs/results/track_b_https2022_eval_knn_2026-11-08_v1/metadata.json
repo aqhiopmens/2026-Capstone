@@ -1,0 +1,124 @@
+{
+  "run_id": "knn_2026-11-08_v1",
+  "flows_run_id": "2026-11-02_v1",
+  "flows_2022_run_id": "2026-11-05_v2",
+  "ns": [
+    0,
+    5,
+    10,
+    20,
+    50
+  ],
+  "ks": [
+    5,
+    10
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "inputs": [
+    "seq"
+  ],
+  "train_day": "2021-04-11",
+  "train_rows": 4539,
+  "train_label_counts": {
+    "benign": 4139,
+    "bruteforce_https": 400
+  },
+  "flows_2022_rows_payload_gt0": 2124,
+  "flows_2022_label_counts": {
+    "bruteforce_https": 2047,
+    "benign": 77
+  },
+  "bundle_gap_s": 5.0,
+  "window_after_s": 600.0,
+  "window": [
+    1649609135.155266,
+    1649610120.392462
+  ],
+  "support_bundle_counts": 50,
+  "first50_victims": {
+    "184.0.48.150": 50
+  },
+  "common_test_rows": 1991,
+  "common_test_victim_counts": {
+    "184.0.48.150": 1920
+  },
+  "common_test_benign_rows": 71,
+  "before_window_rows_excluded": 2,
+  "inside_window_attack_rows_excluded": 127,
+  "boundary_cross": {
+    "start_before_w0_and_end_ge_w0": 0,
+    "start_le_w1_and_end_gt_w1": 2
+  },
+  "common_test_rows_sha256": "68821bb649a218d734244d8110bee1ce4e08f6a717172429eae346dd66aa5da9",
+  "common_test_rows_sha256_lf": "a2f35f09572426ab5cfcc348b2a121b5cd10d7bfb6f8de800af87a282358d8bf",
+  "predictions_files": {
+    "common_test_rows.csv": "68821bb649a218d734244d8110bee1ce4e08f6a717172429eae346dd66aa5da9",
+    "eval2022_predictions.csv.gz": "5539d58ec39c5a32bb7f7e4fbbc8945cf2bb40f12c4af223798c84c460ac87f7",
+    "support_order.csv": "1b749bd61bfe65e5c63cfef8ddadd97195b7c486063e2747e5753b6ee6599fc9"
+  },
+  "environment": {
+    "machine": "kyle-win",
+    "python": "3.12.14",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "packages": {
+      "scikit-learn": "1.6.1",
+      "numpy": "2.0.2",
+      "pandas": "2.2.2",
+      "lightgbm": "4.6.0"
+    },
+    "git_commit": "3bbebf7642dfd8256b3b5db81ca81dca000527c9",
+    "git_dirty_src_tests": false,
+    "dependency_sha256": {
+      "src/track_b/https_unseen.py": "fc2345cd42f86adcee9f5c25608d482a512f57215e3421b9f72c1f8c78835574",
+      "src/track_b/early_eval.py": "6cb9fd64fbd064e83c7aaefbf62de3e4321ad55c822503d2643aa66217ddfbd6",
+      "src/track_b/https_robust.py": "f74148c879e5ebf7efed3c8b654ce57b2cfe53deda63c33c848c0a07b320a573",
+      "src/track_b/https_eval.py": "8ddee8292693759ae9b36e65e6ba4ee6c02fd8585c7ea1d25e4d20fcbc484dd0",
+      "src/track_b/https_flows.py": "24fd8ef6b0791facffa4aebe5211442b749449f37461caa795304751840e3e8f",
+      "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5",
+      "src/common/models.py": "5aaa4ea1c4b29e4f59db08e1c21935f565e7de2fd82e9e4471d5f8e337287598",
+      "src/common/experiment.py": "0820bc4888b4ebf70b6ae840257da7547237ae8bc4166ee834bfde5ada107bf1"
+    },
+    "rf_params": {
+      "bootstrap": true,
+      "ccp_alpha": 0.0,
+      "class_weight": "balanced",
+      "criterion": "gini",
+      "max_depth": null,
+      "max_features": "sqrt",
+      "max_leaf_nodes": null,
+      "max_samples": null,
+      "min_impurity_decrease": 0.0,
+      "min_samples_leaf": 1,
+      "min_samples_split": 2,
+      "min_weight_fraction_leaf": 0.0,
+      "monotonic_cst": null,
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "oob_score": false,
+      "random_state": 0,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "isolation_forest_params": {
+      "bootstrap": false,
+      "contamination": "auto",
+      "max_features": 1.0,
+      "max_samples": "auto",
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "random_state": 0,
+      "verbose": 0,
+      "warm_start": false
+    }
+  },
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "flows_2022_sha256": "13fd232978359f027bf83fed327e31f939f70e5ded73ab0ebdb87d1bd0440894",
+  "code_sha256": {
+    "src/track_b/https_2022.py": "27e72d803b38f594a59e7b16ec42c6ab679c3feaa82a8f862b8230e6b86c392d"
+  },
+  "note": "안건 6 확정안: 문턱·IsolationForest 없음, RF 기본 predict, 정상 지원 추가 없음. oracle 지원 N개 라벨(같은 캡처 안 효과, 일반화 근거 아님). FP 구간은 독립 시행 가정의 참고값이며 환경 간 오탐 불확실성은 추정하지 못한다. 공격자 1명·잠정 라벨 기반 탐색적 결과"
+}

@@ -1,0 +1,23 @@
+{
+  "run_id": "2026-11-08_v1",
+  "b1_rf": {
+    "path": "predictions\\track_b_https_b1_2026-11-05_v3\\b1_test_predictions.csv.gz",
+    "sha256": "fe9279d428ef00182ad14b19ae48b8f53bb40076d3e22920eb1aa2da9eb05c3a"
+  },
+  "b1_knn": {
+    "path": "predictions\\track_b_https_b1_knn_2026-11-08_v1\\b1_test_predictions.csv.gz",
+    "sha256": "1eada8e1e33e9314b1c247281a9c7d5086a628445bfdde8813d471766f9c9b8a"
+  },
+  "e2022_rf": {
+    "path": "predictions\\track_b_https2022_eval_2026-11-05_v1\\eval2022_predictions.csv.gz",
+    "sha256": "388822f792ecdcbb19926f1f39af79566891cde25cea357de11b6ac5d26e069b"
+  },
+  "e2022_knn": {
+    "path": "predictions\\track_b_https2022_eval_knn_2026-11-08_v1\\eval2022_predictions.csv.gz",
+    "sha256": "5539d58ec39c5a32bb7f7e4fbbc8945cf2bb40f12c4af223798c84c460ac87f7"
+  },
+  "code_sha256": {
+    "src/track_b/knn.py": "24a632f27ddbf2b788acb5deadef5a358215a6dd8b53eba3b8a95fe89c097849"
+  },
+  "note": "저장 예측 짝 비교(재학습 없음), 같은 시험 행 키 확인. kNN은 L1 최근접 1개, 동률은 정상. 정확 키 일치(거리 0) 여부로 시험 공격 행을 나눠 recall 병기"
+}
