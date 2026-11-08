@@ -55,3 +55,20 @@ class TlsAuditBoundaryTests(unittest.TestCase):
         rec = record(22, hs(1, b"a" * 30))[:20]
         self.assertFalse(parse_records(rec)[0][4])
         self.assertIn("잘림", describe_packet((1, 0, 20), {1: parse_records(rec)})[0])
+
+
+class TlsAuditConflictTests(unittest.TestCase):
+    def test_declared_handshake_longer_than_record_body_is_incomplete(self):
+        recs = parse_records(bytes([22, 3, 3, 0, 4, 1, 0, 0, 0x60]))
+        self.assertEqual((recs[0][3], recs[0][4]), (["ClientHello"], False))
+
+    def test_partial_overlap_with_different_bytes_is_conflict_not_clean(self):
+        stats = {}
+        streams, placed = reassemble([(1, 100, b"abcde"), (1, 103, b"XYZ")], stats)
+        self.assertEqual(stats["conflicts"], 1)
+        self.assertEqual(streams[1], b"abcdeZ")  # 먼저 본 바이트 유지, 새 구간만 채움
+
+    def test_same_byte_retransmission_is_not_conflict(self):
+        stats = {}
+        reassemble([(1, 100, b"abcde"), (1, 102, b"cde"), (1, 103, b"dEfg"[:1] + b"e")], stats)
+        self.assertEqual((stats["conflicts"], stats["retransmit_same"]), (0, 2))
