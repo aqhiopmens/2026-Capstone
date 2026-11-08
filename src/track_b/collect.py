@@ -388,6 +388,7 @@ def capture(args):
 
 
 # ---------- 매칭 ----------
+MSS = 1460  # 이더넷 MSS(Windows는 TCP timestamps를 쓰지 않아 1460). 이보다 큰 payload가 보이면 LSO·RSC로 합쳐진 것(1448은 timestamps 사용 시 값이라 틀림)
 MIN_REF = 30  # 시계 offset 기준 연결 수 최소값(미달이면 파일럿 불합격, offset=0으로 대체하지 않음)
 MAD_MAX_S, LOST_MAX, MIN_GAP_S = 0.2, 0.02, 600.0  # 파일럿 승인 기준(문서 3절·2절)
 
@@ -576,7 +577,7 @@ def match_main(args):
         cnt[k] = cnt.get(k, 0) + 1
     accept = {(r["client_ip"], r["client_port"], r["server_port"]): r["t_accept"] for r in server_log}
     lag = [flow.start_ts - accept[k] for flow, _ in matched for k in [(flow.client_ip, flow.client_port, flow.server_port)] if cnt.get(k) == 1]
-    over_mss = sum(any(abs(v) > 1448 for v in flow.seq) for flow in flows)
+    over_mss = sum(any(abs(v) > MSS for v in flow.seq) for flow in flows)
     ks = (5, 10, 15)
     fields = ["server", "cls", "impl", "subset", "ep_type", "phase", "round", "episode", "client_ip", "client_port", "server_ip", "server_port", "start_ts",
               "payload_packets", "midstream", "first_req_idx"] + [f"t_k{k}" for k in ks] + [f"seq_{i}" for i in range(K_MAX)]
@@ -601,7 +602,7 @@ def match_main(args):
                  lost_ok=len(main_cells) == n_expected_labels and all(v["lost_frac"] <= LOST_MAX for v in main_cells.values()),
                  quota_ok=not check_quota(logs, exp_cells),
                  gap_ok=set(gaps) == set(SERVERS) and all(v >= MIN_GAP_S for v in gaps.values()))
-    report = dict(flows=len(flows), tcp_packets=tcp_packets, pcap_skipped=skipped, flows_with_segment_over_1448=over_mss, runner_rows=len(logs),
+    report = dict(flows=len(flows), tcp_packets=tcp_packets, pcap_skipped=skipped, flows_with_segment_over_mss=over_mss, runner_rows=len(logs),
                   server_log_rows=len(server_log), server_handshake_failures=hs_fail, matched=len(matched), unmatched_flows=len(unmatched_flows),
                   unmatched_logs=len(unmatched_logs), ambiguous=len(ambiguous), by_label=by_label,
                   clock=dict(offset_runner_to_server_s=round(offset, 4), ref_connections=n_ref, resid_mad_s=round(statistics.median(abs(r) for r in resid), 4),
@@ -612,7 +613,7 @@ def match_main(args):
                   tolerance_s=args.tolerance, created=dt.datetime.now().isoformat(timespec="seconds"))
     Path(args.out).with_suffix(".match.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + chr(10), encoding="utf-8")
     print(json.dumps(dict(pilot_checks=pilot, matched=len(matched), ambiguous=len(ambiguous), unmatched_flows=len(unmatched_flows), skipped=skipped,
-                          over_1448=over_mss, test_gap_s=gaps), ensure_ascii=False), flush=True)
+                          over_mss=over_mss, test_gap_s=gaps), ensure_ascii=False), flush=True)
 
 
 def main():
