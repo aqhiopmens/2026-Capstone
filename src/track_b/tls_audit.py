@@ -34,7 +34,7 @@ GROUPS = [("2021-04-11", "Sunday_2021-04-11_2154.pcap", "attack_242104"), ("2021
 
 
 def parse_records(stream):
-    """방향별 바이트 스트림을 TLS 레코드 목록으로. 각 항목: (시작 오프셋, 레코드 종류, 레코드 길이, 핸드셰이크 메시지 이름 목록). 헤더가 비정상이면 중단한다."""
+    """방향별 바이트 스트림을 TLS 레코드 목록으로. 각 항목: (시작 오프셋, 레코드 종류, 레코드 길이, 핸드셰이크 메시지 이름 목록, 본문이 스트림 안에 다 있는지). 헤더가 비정상이면 중단한다."""
     out, pos = [], 0
     while pos + 5 <= len(stream):
         rtype, ver, length = stream[pos], stream[pos + 1], struct.unpack_from(">H", stream, pos + 3)[0]
@@ -46,42 +46,59 @@ def parse_records(stream):
             while p + 4 <= end:
                 msgs.append(HS_TYPES.get(stream[p], f"hs{stream[p]}"))
                 p += 4 + int.from_bytes(stream[p + 1:p + 4], "big")
-        out.append((pos, REC_TYPES[rtype], length, msgs))
+        out.append((pos, REC_TYPES[rtype], length, msgs, pos + 5 + length <= len(stream)))
         pos += 5 + length
     return out
 
 
-def reassemble(packets):
-    """패킷 목록[(방향, tcp seq, 바이트)]에서 방향별 스트림과 패킷별 (방향, 스트림 오프셉, 길이)를 만든다. 이미 받은 구간만 다시 온 패킷은 버린다."""
-    streams, placed, base = {1: bytearray(), -1: bytearray()}, [], {}
+def reassemble(packets, stats=None):
+    """패킷 목록[(방향, tcp seq, 바이트)]에서 방향별 스트림과 패킷별 (방향, 스트림 오프셋, 길이)를 만든다. 이미 받은 구간만 다시 온 패킷은 버린다.
+    첫 패킷보다 seq가 앞선(재정렬) 패킷은 가장 앞선 seq를 스트림 0으로 잡아 제자리에 놓고 stats['pre_base']로 센다. 받지 못한 구간(gap)은 0으로 채워지므로 gap_bytes로 따로 센다."""
+    streams, placed, first, low = {1: bytearray(), -1: bytearray()}, [], {}, {}
     seen = {1: [], -1: []}
+    stats = stats if stats is not None else {}
+    rel = lambda d, seq: ((seq - first[d] + 2**31) & 0xFFFFFFFF) - 2**31  # 첫 패킷 기준 부호 있는 오프셋(seq 되감김 처리)
     for d, seq, data in packets:
-        base.setdefault(d, seq)
-        off = (seq - base[d]) & 0xFFFFFFFF
+        first.setdefault(d, seq)
+        low[d] = min(low.get(d, 0), rel(d, seq))
+    stats["pre_base"] = sum(rel(d, seq) < 0 for d, seq, _ in packets)  # 도착 순서상 첫 패킷보다 앞 seq인 재정렬 패킷 수
+    for d, seq, data in packets:
+        off = rel(d, seq) - low[d]  # 가장 앞선 seq를 스트림 0으로
         if any(off >= a and off + len(data) <= b for a, b in seen[d]):
             continue
         seen[d].append((off, off + len(data)))
         buf = streams[d]
         if len(buf) < off + len(data):
-            buf.extend(b"\0" * (off + len(data) - len(buf)))
+            buf.extend(bytes(off + len(data) - len(buf)))
         buf[off:off + len(data)] = data
         placed.append((d, off, len(data)))
+    stats["gap_bytes"] = sum(len(streams[d]) - _covered(seen[d]) for d in seen)
     return {d: bytes(b) for d, b in streams.items()}, placed
 
 
+def _covered(spans):
+    """겹치는 구간을 합쳐 덮인 바이트 수를 센다."""
+    total, end = 0, 0
+    for a, b in sorted(spans):
+        total += max(0, b - max(a, end))
+        end = max(end, b)
+    return total
+
+
 def describe_packet(placed_one, records):
-    """한 패킷이 담은 레코드 설명. 반환: (설명 문자열, 경계 상태)."""
+    """한 패킷이 담은 레코드 설명. 반환: (설명 문자열, 경계 상태). 겹치는 레코드가 없거나 첫 겹침 레코드가 패킷 시작과 어긋나면 '미확인'이다."""
     d, off, length = placed_one
     start, end = off, off + length
-    parts, boundary = [], "경계 시작"
-    for pos, kind, rlen, msgs in records.get(d, []):
+    parts, starts_here, spans_earlier = [], False, False
+    for pos, kind, rlen, msgs, complete in records.get(d, []):
         rec_end = pos + 5 + rlen
         if rec_end <= start or pos >= end:
             continue
-        if pos < start:
-            boundary = "레코드 중간에서 시작(분할)"
+        starts_here |= pos == start
+        spans_earlier |= pos < start
         label = kind + (f"[{'+'.join(msgs)}]" if msgs else "")
-        parts.append(f"{label} len{rlen}" + ("(이어짐)" if rec_end > end else ""))
+        parts.append(f"{label} len{rlen}" + ("(이어짐)" if rec_end > end else "") + ("" if complete else "(스트림 끝에서 잘림)"))
+    boundary = "레코드 중간에서 시작(분할)" if spans_earlier else "경계 시작" if starts_here else "미확인"
     return ("; ".join(parts) if parts else "해석 불가(레코드 밖)"), boundary
 
 
@@ -113,9 +130,10 @@ def read_window(path, t0, t1, keys):
                 continue
             src, dst = socket.inet_ntoa(mm[start + off + 12:start + off + 16]), socket.inet_ntoa(mm[start + off + 16:start + off + 20])
             key, d = ((src, sport, dst), 1) if dport == 443 else (((dst, dport, src), -1) if sport == 443 else (None, 0))
-            if key in got:
-                got[key].append((d, seq, bytes(mm[tcp + dlen:tcp + dlen + payload])))
-    return got
+            if key in got:  # (시각, 방향, tcp seq, 페이로드, 원본 pcap 레코드 헤더+프레임)
+                got[key].append((ts, d, seq, bytes(mm[tcp + dlen:tcp + dlen + payload]), bytes(mm[start - 16:start + incl])))
+        header = bytes(mm[:24])
+    return got, header
 
 
 def pick(flows, group):
@@ -149,40 +167,57 @@ def main():
     p22 = DATA_DIR / "processed" / f"track_b_https2022_{args.flows_2022_run_id}" / "flows.csv"
     cols = ["pcap", "day", "flow_id", "label", "client_ip", "client_port", "server_ip", "start_ts", "duration", "payload_packets"] + [f"seq_{i}" for i in range(30)]
     flows = pd.concat([pd.read_csv(p21, usecols=cols, keep_default_na=False), pd.read_csv(p22, usecols=cols, keep_default_na=False)], ignore_index=True)
-    sel_rows, pkt_rows = [], []
+    sel_rows, pkt_rows, excerpts = [], [], {}
+    arows = DATA_DIR / "audit" / f"track_b_tls_audit_{args.run_id}"  # 행별 자료·pcap 발췌는 Git 밖(DATA_DIR/Drive)
+    arows.mkdir(parents=True)
     for group in GROUPS:
         t0, sample = pick(flows, group)
         keys = [(r.client_ip, r.client_port, r.server_ip) for r in sample.itertuples()]
-        packets = read_window(DATA_DIR / "raw" / "hikari" / group[1], t0, t0 + WINDOW_S + 600, keys)
+        packets, header = read_window(DATA_DIR / "raw" / "hikari" / group[1], t0, t0 + WINDOW_S + 600, keys)
+        raw_frames = []
         for r in sample.itertuples():
-            pk = packets[(r.client_ip, r.client_port, r.server_ip)]
-            streams, placed = reassemble(pk)
+            # 연결 범위 고정: 이 플로우의 [시작-1초, 시작+지속시간+2초] 안의 패킷만 쓴다(같은 3-tuple의 다른 연결 제외, 4-tuple에 서버 포트 443 고정)
+            lo, hi = r.start_ts - 1.0, r.start_ts + float(r.duration) + 2.0
+            pk = sorted((x for x in packets[(r.client_ip, r.client_port, r.server_ip)] if lo <= x[0] <= hi), key=lambda x: x[0])
+            raw_frames += [x[4] for x in pk]
+            stats = {}
+            streams, placed = reassemble([x[1:4] for x in pk], stats)
             records = {d: parse_records(s) for d, s in streams.items()}
             mine = [d * n for d, _, n in placed][:FIRST_N]
             theirs = [int(getattr(r, f"seq_{i}")) for i in range(FIRST_N)]
             same = mine == theirs
+            clean = same and stats["gap_bytes"] == 0 and stats["pre_base"] == 0
             sel_rows.append(dict(group=f"{group[0]}_{group[2]}", pcap=group[1], flow_id=r.flow_id, label=r.label, server_ip=r.server_ip,
-                                 start_ts=r.start_ts, payload_packets=r.payload_packets, lengths_match_flows_csv=same))
+                                 start_ts=r.start_ts, payload_packets=r.payload_packets, lengths_match_flows_csv=same,
+                                 gap_bytes=stats["gap_bytes"], pre_base_packets=stats["pre_base"], interpretable=clean))
             for i, pl in enumerate(placed[:FIRST_N]):
                 desc, boundary = describe_packet(pl, records)
                 pkt_rows.append(dict(group=f"{group[0]}_{group[2]}", flow_id=r.flow_id, idx=i, direction="C->S" if pl[0] == 1 else "S->C",
                                      signed_length=pl[0] * pl[2], flows_csv_value=theirs[i] if i < len(theirs) else None,
-                                     records=desc, boundary=boundary, flow_identified=same))
+                                     records=desc, boundary=boundary, flow_identified=same, flow_interpretable=clean))
+        excerpts[group[2] + "_" + group[0]] = arows / f"excerpt_{group[0]}_{group[2]}.pcap"
+        excerpts[group[2] + "_" + group[0]].write_bytes(header + b"".join(raw_frames))
     out.mkdir(parents=True)
     sel, pk = pd.DataFrame(sel_rows), pd.DataFrame(pkt_rows)
-    sel.to_csv(out / "selected_flows.csv", index=False)
-    pk.to_csv(out / "packets.csv", index=False)
-    ident = pk[pk.flow_identified]
+    sel.to_csv(arows / "selected_flows.csv", index=False)
+    pk.to_csv(arows / "packets.csv", index=False)
+    ident = pk[pk.flow_interpretable]
     summ = (ident[ident.idx < 3].groupby(["group", "idx"]).apply(lambda g: pd.Series(dict(
-        packets=len(g), boundary_start=int((g.boundary == "경계 시작").sum()), records_top=g.records.str.replace(r" len\d+", "", regex=True).value_counts().head(2).to_dict())),
+        packets=len(g), boundary_start=int((g.boundary == "경계 시작").sum()), split=int(g.boundary.str.startswith("레코드 중간").sum()),
+        unconfirmed=int((g.boundary == "미확인").sum()),
+        records_top=g.records.str.replace(r" len\d+", "", regex=True).value_counts().head(2).to_dict())),
         include_groups=False).reset_index())
     summ.to_csv(out / "first3_summary.csv", index=False)
     (out / "metadata.json").write_text(json.dumps(dict(
         run_id=args.run_id, seed=SEED, per_group=PER_GROUP, window_s=WINDOW_S, min_payload=MIN_PAYLOAD, first_n=FIRST_N,
         flows_sha256=sha256_file(p21), flows_2022_sha256=sha256_file(p22), code_sha256={"src/track_b/tls_audit.py": sha256_file(Path(__file__))},
-        flows_selected=len(sel), identified=int(sel.lengths_match_flows_csv.sum()),
+        flows_selected=len(sel), identified=int(sel.lengths_match_flows_csv.sum()), interpretable=int(sel.interpretable.sum()),
+        row_level_files={n: dict(path=str((arows / n).relative_to(DATA_DIR)), sha256=sha256_file(arows / n)) for n in ("selected_flows.csv", "packets.csv")},
+        pcap_excerpts={k: dict(path=str(v.relative_to(DATA_DIR)), sha256=sha256_file(v)) for k, v in excerpts.items()},
+        connection_scope="플로우별 [시작-1초, 시작+지속시간+2초] 패킷만, 페이로드>0 패킷만 발췌(SYN·ACK 없음)",
         note="표본 20~25개(첫 공격 후 20분 창, 고정 시드). 레코드 해석은 방향별 재조립 바이트의 TLS 헤더 기준이며 길이 일치만으로 메시지 종류를 확정하지 않는다. "
-             "표본이 작고 시간 창이 한정돼 대표성이 제한적이다"), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+             "경계 집계는 길이 일치·gap 0·재정렬 0인 플로우(interpretable)만 쓴다. '미확인'은 경계로 세지 않는다. 표본이 작고 시간 창이 한정돼 대표성이 제한적이다"),
+        ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     pd.set_option("display.width", 250, "display.max_colwidth", 90)
     print(sel.groupby("group").lengths_match_flows_csv.agg(["sum", "count"]))
     print(pk[pk.idx < 3].groupby(["group", "idx", "direction"]).records.agg(lambda s: s.str.replace(r" len\d+", "", regex=True).value_counts().head(2).to_dict()).to_string())

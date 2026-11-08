@@ -1,0 +1,16 @@
+group,idx,packets,boundary_start,split,unconfirmed,records_top
+2021-04-11_attack_242104,0,5,5,0,0,{'Handshake[ClientHello]': 5}
+2021-04-11_attack_242104,1,5,5,0,0,{'Handshake[ServerHello]; ChangeCipherSpec; AppData; AppData(이어짐)': 5}
+2021-04-11_attack_242104,2,5,0,5,0,{'AppData; AppData; AppData; AppData': 5}
+2021-04-11_benign,0,4,4,0,0,{'Handshake[ClientHello]': 4}
+2021-04-11_benign,1,4,4,0,0,"{'Handshake[ServerHello]; ChangeCipherSpec; AppData; AppData(이어짐)': 2, 'Handshake[ServerHello]; ChangeCipherSpec; AppData': 1}"
+2021-04-11_benign,2,4,2,2,0,"{'AppData; AppData; AppData': 2, 'ChangeCipherSpec; AppData': 2}"
+2021-04-16_attack_242104,0,3,3,0,0,{'Handshake[ClientHello]': 3}
+2021-04-16_attack_242104,1,3,3,0,0,{'Handshake[ServerHello]; ChangeCipherSpec; AppData; AppData(이어짐)': 3}
+2021-04-16_attack_242104,2,3,0,3,0,{'AppData; AppData; AppData; AppData': 3}
+2021-04-16_attack_88_81,0,4,4,0,0,{'Handshake[ClientHello]': 4}
+2021-04-16_attack_88_81,1,4,4,0,0,{'Handshake[ServerHello]; ChangeCipherSpec; AppData; AppData(이어짐)': 4}
+2021-04-16_attack_88_81,2,4,0,4,0,"{'AppData; AppData; AppData': 3, 'AppData(이어짐)': 1}"
+2022-04-10_attack_2022,0,5,5,0,0,{'Handshake[ClientHello]': 5}
+2022-04-10_attack_2022,1,5,5,0,0,{'Handshake[ServerHello]; ChangeCipherSpec; AppData; AppData(이어짐)': 5}
+2022-04-10_attack_2022,2,5,0,5,0,{'AppData; AppData; AppData; AppData': 5}
