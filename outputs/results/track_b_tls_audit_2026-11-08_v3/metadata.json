@@ -1,0 +1,50 @@
+{
+  "run_id": "2026-11-08_v3",
+  "seed": 0,
+  "per_group": 5,
+  "window_s": 1200.0,
+  "min_payload": 10,
+  "first_n": 8,
+  "flows_sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b",
+  "flows_2022_sha256": "13fd232978359f027bf83fed327e31f939f70e5ded73ab0ebdb87d1bd0440894",
+  "code_sha256": {
+    "src/track_b/tls_audit.py": "b3f986fc1a10b9ba43f4fb7a025dae101f68a469fcb8ee33b0e1d648705075fc"
+  },
+  "flows_selected": 25,
+  "identified": 25,
+  "interpretable": 21,
+  "row_level_files": {
+    "selected_flows.csv": {
+      "path": "audit\\track_b_tls_audit_2026-11-08_v3\\selected_flows.csv",
+      "sha256": "0de50dd80ab51183887626c1942c17bc2bdb426ec72157c670446761454c5607"
+    },
+    "packets.csv": {
+      "path": "audit\\track_b_tls_audit_2026-11-08_v3\\packets.csv",
+      "sha256": "93e828bef6b3f4f754007fc219a7d8524cf135e0a0bf0a68bf78d22dc844966f"
+    }
+  },
+  "pcap_excerpts": {
+    "attack_242104_2021-04-11": {
+      "path": "audit\\track_b_tls_audit_2026-11-08_v3\\excerpt_2021-04-11_attack_242104.pcap",
+      "sha256": "688f00a85d5a74378f138221323a45ab9e83e8476d3fdce4652a4ff40b4256d8"
+    },
+    "benign_2021-04-11": {
+      "path": "audit\\track_b_tls_audit_2026-11-08_v3\\excerpt_2021-04-11_benign.pcap",
+      "sha256": "5f16d58ec47e17f4a707e495a31e69fa0ef6d1496899e39139ea6dc4c1ef8987"
+    },
+    "attack_88_81_2021-04-16": {
+      "path": "audit\\track_b_tls_audit_2026-11-08_v3\\excerpt_2021-04-16_attack_88_81.pcap",
+      "sha256": "76bff5991e5d3bd9e21951a15e0271abf44644f170358cb42ba59c9af27915dc"
+    },
+    "attack_242104_2021-04-16": {
+      "path": "audit\\track_b_tls_audit_2026-11-08_v3\\excerpt_2021-04-16_attack_242104.pcap",
+      "sha256": "3ea5c75bd69d4a4192c4bf6313013700c5d03dca392fbf31a2c725919d554437"
+    },
+    "attack_2022_2022-04-10": {
+      "path": "audit\\track_b_tls_audit_2026-11-08_v3\\excerpt_2022-04-10_attack_2022.pcap",
+      "sha256": "bee4e18606933deb2df38720fdfb54bce1f86580e3ba08990173b85aa5043a64"
+    }
+  },
+  "connection_scope": "플로우별 [시작-1초, 시작+지속시간+2초] 패킷만, 페이로드>0 패킷만 발췌(SYN·ACK 없음)",
+  "note": "표본 20~25개(첫 공격 후 20분 창, 고정 시드). 레코드 해석은 방향별 재조립 바이트의 TLS 헤더 기준이며 길이 일치만으로 메시지 종류를 확정하지 않는다. 경계 집계는 길이 일치·gap 0·재정렬 0인 플로우(interpretable)만 쓴다. '미확인'은 경계로 세지 않는다. 표본이 작고 시간 창이 한정돼 대표성이 제한적이다"
+}

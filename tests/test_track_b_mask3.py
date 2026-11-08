@@ -29,3 +29,13 @@ class Mask3Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_role_recall_splits_victims_and_checks_rows():
+    import pandas as pd
+    from src.track_b.mask3 import role_recall
+    def frame(a):
+        return pd.DataFrame(dict(k=5, n=0, seed=0, role=["attack"] * 2 + ["a242"] * 2 + ["benign"], pred_attack=a + [0]))
+    out = role_recall(frame([1, 0, 1, 1]), frame([0, 0, 1, 1])).set_index("role")
+    assert out.loc[".88.81", "recall_seq"] == 0.5 and out.loc[".88.81", "recall_mask3"] == 0.0
+    assert out.loc[".242.104", "d_recall"] == 0.0 and (out.rows == 2).all()
