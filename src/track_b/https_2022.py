@@ -57,7 +57,7 @@ def split_2022(flows, n_max=50):
                 inside_attack_rows=int(((flows.start_ts >= w0) & (flows.start_ts <= w1) & (flows.label == ATTACK)).sum()))
 
 
-def condition_rows(flows, split, pred_by_n, make_x, k, kind, seed, ns):
+def condition_rows(flows, split, pred_by_n, make_x, k, kind, seed, ns, exact_by_n=None):
     """모델별 예측(전체 2022)에서 시험/전이 지표 행과 행별 예측을 만든다. pred_by_n[n] = 전체 플로우에 대한 pred_attack 배열."""
     rows, details = [], []
     attack = (flows.label == ATTACK).to_numpy()
@@ -87,23 +87,28 @@ def condition_rows(flows, split, pred_by_n, make_x, k, kind, seed, ns):
         rows.append(row)
         details.append(pd.DataFrame(dict(pcap=flows.pcap.to_numpy(), flow_id=flows.flow_id.to_numpy(), actual=flows.label.to_numpy(),
                                          in_test=test.astype(np.int8), unseen_prefix=unseen.astype(np.int8),
-                                         pred_attack=pred.astype(np.int8))).assign(kind=kind, k=k, seed=seed, n=n))
+                                         pred_attack=pred.astype(np.int8),
+                                         **({"exact": exact_by_n[n].astype(np.int8)} if exact_by_n else {}))).assign(kind=kind, k=k, seed=seed, n=n))
     return rows, pd.concat(details, ignore_index=True)
 
 
-def run_condition(base, flows, split, k, kind, seed, ns=B1_NS):
+def run_condition(base, flows, split, k, kind, seed, ns=B1_NS, model_name="rf"):
     from src.common.models import make_model
 
     make_x = (lambda f: prefix_features(f, k, "seq")) if kind == "seq" else (lambda f: transform(f, k, "logb"))
     if kind == "seq_mask3":  # 앞 3칸 마스킹(안건 8). 지원 순서·공통 시험 행은 원본과 같다(입력에 의존하지 않음)
         make_x = lambda f: mask3(prefix_features(f, k, "seq"))
     x_all = make_x(flows)
-    pred_by_n = {}
+    pred_by_n, exact_by_n = {}, {}
     for n in ns:
         train = pd.concat([base, split["support"].head(n)], ignore_index=True)
-        model = make_model("rf", seed=seed, workers=2).fit(make_x(train), train.label)
-        pred_by_n[n] = model.predict(x_all) == ATTACK
-    rows, details = condition_rows(flows, split, pred_by_n, make_x, k, kind, seed, ns)
+        if model_name == "knn":  # 안건 10: 최근접 1개, L1, 동률은 정상
+            from src.track_b.knn import knn1_predict
+            pred_by_n[n], exact_by_n[n] = knn1_predict(make_x(train), train.label, x_all)
+        else:
+            model = make_model("rf", seed=seed, workers=2).fit(make_x(train), train.label)
+            pred_by_n[n] = model.predict(x_all) == ATTACK
+    rows, details = condition_rows(flows, split, pred_by_n, make_x, k, kind, seed, ns, exact_by_n or None)
     for r in rows:
         r["train_rows"] = len(base) + r["n"]
     return rows, details
@@ -150,6 +155,7 @@ def main():
     parser.add_argument("--flows-2022-run-id")
     parser.add_argument("--run-id", default=datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d_%H%M%S"))
     parser.add_argument("--kinds", nargs="+", default=list(INPUTS), choices=list(INPUTS) + ["seq_mask3"])
+    parser.add_argument("--model", default="rf", choices=["rf", "knn"])
     args = parser.parse_args()
     if args.metrics_of:
         return metrics_main(args.metrics_of)
@@ -168,7 +174,7 @@ def main():
     base = base[base.day == B1_TRAIN_DAY].reset_index(drop=True)
     flows = load_payload(p22).sort_values(["start_ts", "flow_id"]).reset_index(drop=True)
     split = split_2022(flows)
-    runs = [run_condition(base, flows, split, k, kind, seed) for kind in args.kinds for k in B1_KS for seed in SEEDS]
+    runs = [run_condition(base, flows, split, k, kind, seed, model_name=args.model) for kind in args.kinds for k in B1_KS for seed in SEEDS]
     result = pd.DataFrame([r for rows, _ in runs for r in rows])
     data_out.mkdir(parents=True)
     pd.concat([d for _, d in runs], ignore_index=True).to_csv(data_out / "eval2022_predictions.csv.gz", index=False)

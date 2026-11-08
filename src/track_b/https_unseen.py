@@ -222,7 +222,7 @@ def prefix_keys(x):
     return [tuple(r) for r in x.to_numpy().tolist()]
 
 
-def b1_run(flows, k, kind, seed, split, ns=B1_NS):
+def b1_run(flows, k, kind, seed, split, ns=B1_NS, model_name="rf"):
     """N개의 .88.81 공격 라벨(oracle 지원)과 의심 칸 정상 소수를 학습에 추가했을 때 공통 시험의 recall·오탐. 학습 기준선은 04-11 단독."""
     from src.common.models import make_model
 
@@ -258,11 +258,19 @@ def b1_run(flows, k, kind, seed, split, ns=B1_NS):
     for n in ns:
         support = sa.head(n)
         train = pd.concat([base, support, flagged_benign], ignore_index=True)
-        model = make_model("rf", seed=seed, workers=2).fit(make(train), train.label)
-        pred = {name: model.predict(x) for name, x in xt.items()}
+        if model_name == "knn":  # 안건 10: 같은 지원·시험 행에서 최근접 1개 대조. 정확 키 일치 여부는 exact 열에 기록
+            from src.track_b.knn import knn1_predict
+            res = {name: knn1_predict(make(train), train.label, x) for name, x in xt.items()}
+            pred = {name: np.where(r[0], ATTACK, BENIGN) for name, r in res.items()}
+            exact = {name: r[1] for name, r in res.items()}
+        else:
+            model = make_model("rf", seed=seed, workers=2).fit(make(train), train.label)
+            pred = {name: model.predict(x) for name, x in xt.items()}
+            exact = None
         details.append(pd.concat([pd.DataFrame(dict(pcap=g.pcap.to_numpy(), flow_id=g.flow_id.to_numpy(), role=name,
-                                                    pred_attack=(pred[name] == ATTACK).astype(np.int8)))
-                                  for name, g in groups_b.items()], ignore_index=True).assign(kind=kind, k=k, seed=seed, n=n))
+                                                    pred_attack=(pred[name] == ATTACK).astype(np.int8),
+                                                    **({"exact": exact[name].astype(np.int8)} if exact else {})))
+                                  for name, g in groups_b.items()], ignore_index=True).assign(kind=kind, k=k, seed=seed, n=n, model=model_name))
         new = prefix_keys(make(support)) if n else []
         unseen = np.array([key not in set(new) for key in prefix_keys(xt["attack"])])
         short = (t_benign.payload_packets < k).to_numpy()
@@ -286,7 +294,7 @@ def b1_main(args):
         raise FileExistsError("기존 결과를 덮어쓰지 않습니다. 다른 run-id를 지정하세요")
     flows = load_flows(args.flows_run_id, args.xml_flows_run_id, DATA_DIR)
     split = b1_split(flows)
-    runs = [b1_run(flows, k, kind, seed, split) for kind in args.kinds for k in B1_KS for seed in SEEDS]
+    runs = [b1_run(flows, k, kind, seed, split, model_name=args.model) for kind in args.kinds for k in B1_KS for seed in SEEDS]
     result = pd.DataFrame([r for rows, _, _ in runs for r in rows])
     data_out = DATA_DIR / "predictions" / f"track_b_https_b1_{args.run_id}"
     data_out.mkdir(parents=True)
@@ -402,6 +410,7 @@ def main():
     b.add_argument("--xml-flows-run-id", required=True)
     b.add_argument("--run-id", default=datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d_%H%M%S"))
     b.add_argument("--kinds", nargs="+", default=list(INPUTS), choices=list(INPUTS) + ["seq_mask3"])
+    b.add_argument("--model", default="rf", choices=["rf", "knn"])
     r = sub.add_parser("suspect")
     r.add_argument("--flows-run-id", required=True)
     r.add_argument("--xml-flows-run-id", required=True)
