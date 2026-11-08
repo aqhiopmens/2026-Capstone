@@ -105,18 +105,18 @@ def pair_metrics(base, new, group):
     return both.assign(experiment=group), summ.assign(experiment=group)
 
 
-def role_recall(base, new):
+def role_recall(base, new, tags=("seq", "mask3")):
     """피해자(role)별 공격 recall 짝: (k, n)별 시드 평균과 시험 행 수. role: attack=.88.81, a242=.242.104.
     pair_metrics의 recall은 두 피해자를 합친 전체 공격(all_attack) 값이라 따로 낸다."""
     def one(frame, tag):
         g = frame[frame.role != "benign"].groupby(["k", "n", "seed", "role"]).pred_attack.agg(["mean", "size"])
         g = g.rename(columns={"mean": f"recall_{tag}", "size": "rows"}).reset_index()
         return g.groupby(["k", "n", "role"]).agg(**{f"recall_{tag}": (f"recall_{tag}", "mean"), "rows": ("rows", "first")}).reset_index()
-    out = one(base, "seq").merge(one(new, "mask3"), on=["k", "n", "role"], validate="one_to_one")
+    out = one(base, tags[0]).merge(one(new, tags[1]), on=["k", "n", "role"], validate="one_to_one")
     if not (out.rows_x == out.rows_y).all():
         raise ValueError("원본과 마스킹의 피해자별 시험 행 수가 다릅니다")
     out = out.drop(columns="rows_y").rename(columns={"rows_x": "rows"})
-    out["d_recall"] = out.recall_mask3 - out.recall_seq
+    out["d_recall"] = out[f"recall_{tags[1]}"] - out[f"recall_{tags[0]}"]
     return out.replace({"role": {"attack": ".88.81", "a242": ".242.104"}})
 
 

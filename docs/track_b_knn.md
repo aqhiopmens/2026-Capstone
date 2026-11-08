@@ -1,6 +1,6 @@
 # B: kNN(최근접 1개) 선택 대조 (안건 10)
 
-적응(oracle 지원 N개) 시나리오에서 RF와 최근접 1개를 **같은 지원 행·같은 시험 행**으로 비교해 "단순 반복 패턴 암기"와의 차이를 본다. RF를 대체하자는 제안이 아니고 선택 대조이며, 서비스 후보 선정은 별도 합의 사항이다. Windows 탐색, 코드 `src/track_b/knn.py`(+ `https_unseen b1 --model knn`, `https_2022 --model knn`), 결과 `outputs/results/track_b_{https_b1_knn,https2022_eval_knn}_2026-11-08_v1/`, 비교 `track_b_knn_compare_2026-11-08_v2/`(피해자별 분할 포함, v1은 피해자를 합친 분할이라 .88.81 암기로 오독될 수 있어 v2로 대체).
+적응(oracle 지원 N개) 시나리오에서 RF와 최근접 1개를 **같은 지원 행·같은 시험 행**으로 비교해 "단순 반복 패턴 암기"와의 차이를 본다. RF를 대체하자는 제안이 아니고 선택 대조이며, 서비스 후보 선정은 별도 합의 사항이다. Windows 탐색, 코드 `src/track_b/knn.py`(+ `https_unseen b1 --model knn`, `https_2022 --model knn`), 결과 `outputs/results/track_b_{https_b1_knn,https2022_eval_knn}_2026-11-08_v1/`, 비교 `track_b_knn_compare_2026-11-08_v3/`(v2와 같은 값에 recall 모집단 열 `recall_population`과 피해자별 표 `paired_recall_by_victim_39.csv` 추가. v1은 피해자를 합친 분할이라 .88.81 암기로 오독될 수 있어 대체). **`paired_39_*`·`paired_40_*`의 recall 열은 전체 공격(`all_attack`: #39는 .88.81+.242.104, #40은 2022 시험 공격) 값**이고, 아래 본문 표의 recall은 .88.81만이다(예: N=0 전체 공격 recall 0.281은 .88.81 recall 0.000과 다름).
 
 **사전 고정(실행 전 Slack 안건 10 확정안)**: 입력 원본 seq(부호 있는 앞 k개 길이, k=5·10), 스케일링 없음, L1 거리, 이웃 1개, 가장 가까운 공격 행 거리 d_a < 가장 가까운 정상 행 거리 d_b이면 공격(같으면 정상). 학습 집합·oracle 공격 순서·정상 지원 행(#39는 원본 seq 기준 IF 선택)·공통 시험 행은 RF와 같다(행 키 일치를 코드로 확인). 시험 결과를 보고 거리·k·동률 규칙을 바꾸지 않았다.
 

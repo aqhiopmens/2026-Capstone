@@ -82,12 +82,16 @@ def compare_main(args):
         raise ValueError("#40: RF와 kNN의 시험 행이 일치하지 않습니다")
     r39, s39 = pair_rf_knn(b1_metrics(b1r).drop(columns="kind"), b1_metrics(b1k).drop(columns="kind"))
     r40, s40 = pair_rf_knn(metrics_2022(er).drop(columns="kind"), metrics_2022(ek).drop(columns="kind"))
+    from src.track_b.mask3 import role_recall
+
+    by_role = role_recall(b1r, b1k, ("rf", "knn"))  # 피해자별 recall(.88.81 / .242.104). paired_*의 recall은 전체 공격(all_attack)
     x39 = exact_split(b1k, lambda p: p.role != "benign")
     x40 = exact_split(ek[ek.in_test == 1], lambda p: p.actual == ATTACK)
     x39r = exact_split(b1k, lambda p: p.role != "benign", by=("k", "n", "role"))  # 피해자(role)별 분할
     out.mkdir(parents=True)
-    for name, frame in (("paired_39_conditions", r39.assign(experiment="39_88_81")), ("paired_39_summary", s39), ("paired_40_conditions", r40.assign(experiment="40_2022")),
-                        ("paired_40_summary", s40), ("exact_split_39", x39), ("exact_split_39_by_role", x39r), ("exact_split_40", x40)):
+    for name, frame in (("paired_39_conditions", r39.assign(experiment="39_88_81", recall_population="all_attack(.88.81+.242.104)")),
+                        ("paired_39_summary", s39.assign(recall_population="all_attack(.88.81+.242.104)")), ("paired_40_conditions", r40.assign(experiment="40_2022", recall_population="all_attack(2022)")),
+                        ("paired_40_summary", s40.assign(recall_population="all_attack(2022)")), ("paired_recall_by_victim_39", by_role), ("exact_split_39", x39), ("exact_split_39_by_role", x39r), ("exact_split_40", x40)):
         frame.to_csv(out / f"{name}.csv", index=False)
     (out / "metadata.json").write_text(json.dumps(dict(
         run_id=args.run_id, **{k: dict(path=str(v.relative_to(DATA_DIR)), sha256=sha256_file(v)) for k, v in files.items()},
