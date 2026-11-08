@@ -1,0 +1,29 @@
+{
+  "run_id": "2026-11-08_v1",
+  "machine": "kyle-win",
+  "pcap": "Sunday_2021-05-02_1206.pcap",
+  "pcap_bytes": 2308628480,
+  "pcap_md5_zenodo": "21a44865c0cdd6fa417e28e69170aa84",
+  "tcp_packets": 3263703,
+  "skipped": {
+    "non_tcp": 182578,
+    "non_ipv4": 178
+  },
+  "flows": 44029,
+  "capture_rule": {
+    "day": "2021-05-02",
+    "attacker": "103.255.15.150",
+    "victim": "128.199.242.104",
+    "attack": "probing"
+  },
+  "flows_sha256": "b33dc2724762d9d2f3147f8e04b19f7cb2c508b2a846923218e92cacaee8310e",
+  "csv_sha256": "ba09d35269566fd2f269871043b24e7d8e372bc4a47e9c2027729e5ff2e660e0",
+  "flow_status_sha256": "007686ff95de5182601cd72b917947cee8b3f41212848cceb988d0f7a406e2d6",
+  "code_sha256": {
+    "src/track_b/https_probing.py": "5d8a05ab66ba9e31cf4aebba1113133ba2561651d5f15f6040c9203a631237d1",
+    "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5"
+  },
+  "git_commit": "33d90471e04282044dac127e6a7363be6db4adf6",
+  "git_dirty_src_tests": false,
+  "note": "성능 확인 전 라벨 감사·범위 고정. 캡처 단위 잠정 라벨이며 CSV는 확인용이다. 모델 입력이 아니다"
+}

@@ -1,0 +1,9 @@
+part,label,reached_k5,reached_k10,rows
+test,benign,0.9141730872603476,0.5374186227079973,33486.0
+test,bruteforce_https,0.99963530269876,0.9990882567469,5484.0
+test,bruteforce_xml,1.0,1.0,3925.0
+test,probing,1.0,0.8474402380219554,9747.0
+train,benign,0.7859955815963884,0.6327922389780041,10411.0
+train,bruteforce_https,1.0,1.0,400.0
+train,bruteforce_xml,1.0,1.0,1216.0
+train,probing,1.0,0.846252985102915,26381.0

@@ -1,0 +1,16 @@
+part,source,label,rows
+excluded,probing_test,benign,145
+excluded,probing_test,probing,2040
+test,https_0416,benign,27715
+test,https_0416,bruteforce_https,1533
+test,https_0416_new_victim,bruteforce_https,3951
+test,probing_test,benign,1316
+test,probing_test,probing,9747
+test,xml_0417,benign,4455
+test,xml_0417,bruteforce_xml,3925
+train,https_0411,benign,4139
+train,https_0411,bruteforce_https,400
+train,probing_train,benign,4342
+train,probing_train,probing,26381
+train,xml_0412,benign,1930
+train,xml_0412,bruteforce_xml,1216

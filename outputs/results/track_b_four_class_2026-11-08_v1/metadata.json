@@ -1,0 +1,112 @@
+{
+  "run_id": "2026-11-08_v1",
+  "classes": [
+    "benign",
+    "probing",
+    "bruteforce_xml",
+    "bruteforce_https"
+  ],
+  "ks": [
+    5,
+    10
+  ],
+  "kinds": [
+    "seq",
+    "seq_mask3"
+  ],
+  "models": [
+    "rf",
+    "lgbm"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "train_fraction": 0.7,
+  "gap_s": 600.0,
+  "probing_boundary_ts": 1619940909.8696237,
+  "inputs": {
+    "https": {
+      "path": "processed\\track_b_https_2026-11-02_v1\\flows.csv",
+      "sha256": "1096cf8f352870eafe3a097cef5592cb7989df58a8c0ac1d6ced44e1100bf07b"
+    },
+    "xml": {
+      "path": "processed\\track_b_2026-10-31_v3\\flows.csv",
+      "sha256": "56984701746445874599587ddc8f560ba016c576ca1f1e2592680b25ff314aa1"
+    },
+    "probing": {
+      "path": "processed\\track_b_https_probing_2026-11-08_v1\\flows.csv",
+      "sha256": "b33dc2724762d9d2f3147f8e04b19f7cb2c508b2a846923218e92cacaee8310e"
+    }
+  },
+  "predictions_sha256": "d84be90844d40e56ef0a0089ca8ea7119390041fc2b8dbcd58b3fd93f0ed590f",
+  "code_sha256": {
+    "src/track_b/four_class.py": "2097b7f6c7b0d826d98d39604407a050aeb92d9ba6346fb8ef9ce1f15b4915af"
+  },
+  "environment": {
+    "machine": "kyle-win",
+    "python": "3.12.14",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "packages": {
+      "scikit-learn": "1.6.1",
+      "numpy": "2.0.2",
+      "pandas": "2.2.2",
+      "lightgbm": "4.6.0"
+    },
+    "git_commit": "19806fd2f74e6c9de40435a1d62d7631dea501d4",
+    "git_dirty_src_tests": false,
+    "dependency_sha256": {
+      "src/track_b/https_unseen.py": "0a55fff9f16b0d3250a41c3378f50a536cdabf23552fca9fb4c48394f5fc591b",
+      "src/track_b/early_eval.py": "aa9ae147a0d863afd10d67602f31fb8328157d61ac1680ec2d6af40a6c58ce3b",
+      "src/track_b/https_robust.py": "12d2c3bc71ca04d92bae0b7e564bcd260554dda0b526a27f8a6afc2841625d76",
+      "src/track_b/https_eval.py": "8ddee8292693759ae9b36e65e6ba4ee6c02fd8585c7ea1d25e4d20fcbc484dd0",
+      "src/track_b/https_flows.py": "24fd8ef6b0791facffa4aebe5211442b749449f37461caa795304751840e3e8f",
+      "src/track_b/pcap_flows.py": "d6beb1f3807c5b6e32d0613075d1b0dfe4587366d1eb627ea6006d0460a46ba5",
+      "src/common/models.py": "5aaa4ea1c4b29e4f59db08e1c21935f565e7de2fd82e9e4471d5f8e337287598",
+      "src/common/experiment.py": "0820bc4888b4ebf70b6ae840257da7547237ae8bc4166ee834bfde5ada107bf1"
+    },
+    "rf_params": {
+      "bootstrap": true,
+      "ccp_alpha": 0.0,
+      "class_weight": "balanced",
+      "criterion": "gini",
+      "max_depth": null,
+      "max_features": "sqrt",
+      "max_leaf_nodes": null,
+      "max_samples": null,
+      "min_impurity_decrease": 0.0,
+      "min_samples_leaf": 1,
+      "min_samples_split": 2,
+      "min_weight_fraction_leaf": 0.0,
+      "monotonic_cst": null,
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "oob_score": false,
+      "random_state": 0,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "isolation_forest_params": {
+      "bootstrap": false,
+      "contamination": "auto",
+      "max_features": 1.0,
+      "max_samples": "auto",
+      "n_estimators": 100,
+      "n_jobs": 2,
+      "random_state": 0,
+      "verbose": 0,
+      "warm_start": false
+    }
+  },
+  "note": "PoC. 캡처 단위 잠정 라벨(Probing은 CSV로 확인되지 않음, docs 참조), 정상 출처=캡처, 쉬운 구분 단서. 공격 하나 빼기는 4분류 재현율이 아니라 경보율",
+  "posthoc": {
+    "files": [
+      "by_source.csv",
+      "macro_f1_without_new_victim.csv"
+    ],
+    "predictions_sha256": "d84be90844d40e56ef0a0089ca8ea7119390041fc2b8dbcd58b3fd93f0ed590f",
+    "code_sha256": "71c30442b1a6ef5b9b2a28a15cc39524f8515e5ab2dca8dcd3ff0db2813b5777",
+    "note": "재학습 없이 저장 예측에서 계산. macro_f1_without_new_victim은 새 피해자 .88.81 공격 행을 뺀 시험(C1 같은 분포)"
+  }
+}

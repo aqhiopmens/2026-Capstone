@@ -1,0 +1,3 @@
+pcap,label,flows,payload0,key_flows,key_payload_flows,key_payload_nonzero_flows,key_payload_one_row,csv_rows_hit_key_payload,kp_unmatched,kp_single_agree,kp_multi_agree,k_single_agree,k_multi_agree,kp_conflict,kp_single_disagree,k_conflict,k_single_disagree
+Sunday_2021-05-02_1206.pcap,benign,5861,58,5861,2252,2213,2236,2313,3609,2236.0,16.0,5794.0,67.0,0.0,0.0,0.0,0.0
+Sunday_2021-05-02_1206.pcap,probing,38168,0,38168,38143,38143,10148,65167,25,0.0,0.0,0.0,0.0,27995.0,10148.0,38153.0,15.0

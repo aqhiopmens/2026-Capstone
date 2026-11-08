@@ -1,0 +1,3 @@
+label,flows,payload0,midstream,reached_k5,reached_k10,reached_k20,reached_k30,payload_median,start_min,start_max
+benign,5861,58,1702,4173,3855,2085,1549,14.0,1619932476.145626,1619944599.289316
+probing,38168,0,0,38168,32159,764,753,11.0,1619932300.703967,1619944581.076569
