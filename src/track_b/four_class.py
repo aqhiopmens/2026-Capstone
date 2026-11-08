@@ -97,13 +97,47 @@ def run(data, report_rows, detail_rows, confusion_rows, alert_rows):
                             alert_rows.append(dict(**cond, held_out=held, test_label=label, rows=int(m.sum()), alert_rate=float((pred_h[m.to_numpy()] != BENIGN).mean())))
 
 
+def by_source_metrics(pred):
+    """저장 예측에서 시험 출처별·실제 클래스별 recall과 분모, 그리고 새 피해자(.88.81) 행을 뺀 4분류 macro-F1(C1 같은 분포 조건)을 계산한다(재학습 없음)."""
+    rows, c1 = [], []
+    for (kind, k, model, seed), g in pred.groupby(["kind", "k", "model", "seed"]):
+        for (source, actual), h in g.groupby(["source", "actual"]):
+            rows.append(dict(kind=kind, k=k, model=model, seed=seed, source=source, actual=actual, rows=len(h), recall=float((h.predicted == h.actual).mean())))
+        sub = g[g.source != "https_0416_new_victim"]
+        c1.append(dict(kind=kind, k=k, model=model, seed=seed, rows=len(sub), macro_f1_without_new_victim=class_scores(sub.actual, sub.predicted)[1]))
+    return pd.DataFrame(rows), pd.DataFrame(c1)
+
+
+def posthoc_main(run_id):
+    from src.common.config import DATA_DIR
+
+    root = Path(__file__).resolve().parents[2]
+    out = root / "outputs/results" / f"track_b_four_class_{run_id}"
+    path = DATA_DIR / "predictions" / f"track_b_four_class_{run_id}" / "predictions.csv.gz"
+    if (out / "by_source.csv").exists():
+        raise FileExistsError("이미 후속 집계가 있습니다")
+    src, c1 = by_source_metrics(pd.read_csv(path, keep_default_na=False))
+    src.groupby(["kind", "k", "model", "source", "actual"]).agg(rows=("rows", "first"), recall=("recall", "mean")).reset_index().to_csv(out / "by_source.csv", index=False)
+    c1.groupby(["kind", "k", "model"]).agg(rows=("rows", "first"), macro_f1_without_new_victim=("macro_f1_without_new_victim", "mean")).reset_index().to_csv(out / "macro_f1_without_new_victim.csv", index=False)
+    meta = json.loads((out / "metadata.json").read_text(encoding="utf-8"))
+    meta["posthoc"] = dict(files=["by_source.csv", "macro_f1_without_new_victim.csv"], predictions_sha256=sha256_file(path), code_sha256=sha256_file(Path(__file__)),
+                           note="재학습 없이 저장 예측에서 계산. macro_f1_without_new_victim은 새 피해자 .88.81 공격 행을 뺀 시험(C1 같은 분포)")
+    (out / "metadata.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "
+", encoding="utf-8")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--flows-run-id", required=True)
-    parser.add_argument("--xml-flows-run-id", required=True)
-    parser.add_argument("--probing-run-id", required=True)
+    parser.add_argument("--posthoc", help="기존 run-id의 저장 예측에서 출처별 recall·새 피해자 제외 macro-F1을 계산(재학습 없음)")
+    parser.add_argument("--flows-run-id")
+    parser.add_argument("--xml-flows-run-id")
+    parser.add_argument("--probing-run-id")
     parser.add_argument("--run-id", default=datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d_%H%M%S"))
     args = parser.parse_args()
+    if args.posthoc:
+        return posthoc_main(args.posthoc)
+    if not (args.flows_run_id and args.xml_flows_run_id and args.probing_run_id):
+        parser.error("--flows-run-id, --xml-flows-run-id, --probing-run-id가 필요합니다")
     from src.common.config import DATA_DIR
 
     root = Path(__file__).resolve().parents[2]
