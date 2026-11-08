@@ -74,7 +74,7 @@ def fit_predict(model_name, seed, x_train, y_train, x_test):
     return make_model(model_name, seed=seed, workers=2).fit(x_train, y_train).predict(x_test)
 
 
-def run(data, report_rows, detail_rows, confusion_rows, alert_rows):
+def run(data, report_rows, detail_rows, confusion_rows, alert_rows, holdout_rows=None):
     train, test = data[data.part == "train"], data[data.part == "test"]
     for kind in KINDS:
         for k in KS:
@@ -94,7 +94,12 @@ def run(data, report_rows, detail_rows, confusion_rows, alert_rows):
                         keep = train.label != held
                         pred_h = fit_predict(model, seed, xtr[keep.to_numpy()], train.label[keep].to_numpy(), xte)
                         for label, m in ((held, test.label == held), (BENIGN, test.label == BENIGN)):
-                            alert_rows.append(dict(**cond, held_out=held, test_label=label, rows=int(m.sum()), alert_rate=float((pred_h[m.to_numpy()] != BENIGN).mean())))
+                            alert_rows.append(dict(**cond, held_out=held, test_label=label, rows=int(m.sum()), alerts=int((pred_h[m.to_numpy()] != BENIGN).sum()),
+                                                   alert_rate=float((pred_h[m.to_numpy()] != BENIGN).mean())))
+                        if holdout_rows is not None:  # 경보율 독립 재계산용: 빼낸 유형 행과 정상 행의 행별 예측
+                            sel = ((test.label == held) | (test.label == BENIGN)).to_numpy()
+                            holdout_rows.append(pd.DataFrame(dict(pcap=test.pcap.to_numpy()[sel], flow_id=test.flow_id.to_numpy()[sel], actual=test.label.to_numpy()[sel],
+                                                                  predicted=pred_h[sel])).assign(**cond, held_out=held))
 
 
 def by_source_metrics(pred):
@@ -155,8 +160,8 @@ def main():
     support = data.groupby(["part", "source", "label"]).size().rename("rows").reset_index()
     reach = data[data.part != "excluded"].groupby(["part", "label"]).apply(
         lambda g: pd.Series({f"reached_k{k}": float((g.payload_packets >= k).mean()) for k in KS} | {"rows": len(g)}), include_groups=False).reset_index()
-    report, detail, confusion, alert = [], [], [], []
-    run(data, report, detail, confusion, alert)
+    report, detail, confusion, alert, holdout = [], [], [], [], []
+    run(data, report, detail, confusion, alert, holdout)
     out.mkdir(parents=True)
     data_out.mkdir(parents=True)
     report_df, alert_df = pd.DataFrame(report), pd.DataFrame(alert)
@@ -166,13 +171,14 @@ def main():
     pd.DataFrame(confusion).to_csv(out / "confusion.csv", index=False)
     alert_df.to_csv(out / "hold_out_alert.csv", index=False)
     pd.concat(detail, ignore_index=True).to_csv(data_out / "predictions.csv.gz", index=False)
+    pd.concat(holdout, ignore_index=True).to_csv(data_out / "holdout_predictions.csv.gz", index=False)
     summary = report_df.groupby(["kind", "k", "model"]).mean(numeric_only=True).reset_index().drop(columns="seed")
     summary.to_csv(out / "summary.csv", index=False)
     alert_df.groupby(["kind", "k", "model", "held_out", "test_label"]).agg(rows=("rows", "first"), alert_rate=("alert_rate", "mean")).reset_index().to_csv(out / "hold_out_summary.csv", index=False)
     (out / "metadata.json").write_text(json.dumps(dict(
         run_id=args.run_id, classes=list(CLASSES), ks=list(KS), kinds=list(KINDS), models=list(MODELS), seeds=list(SEEDS), train_fraction=TRAIN_FRACTION, gap_s=GAP_S,
         probing_boundary_ts=boundary, inputs={n: dict(path=str(p.relative_to(DATA_DIR)), sha256=sha256_file(p)) for n, p in paths.items()},
-        predictions_sha256=sha256_file(data_out / "predictions.csv.gz"), code_sha256={"src/track_b/four_class.py": sha256_file(Path(__file__))},
+        predictions_sha256=sha256_file(data_out / "predictions.csv.gz"), holdout_predictions_sha256=sha256_file(data_out / "holdout_predictions.csv.gz"), code_sha256={"src/track_b/four_class.py": sha256_file(Path(__file__))},
         environment=run_environment(root),
         note="PoC. 캡처 단위 잠정 라벨(Probing은 CSV로 확인되지 않음, docs 참조), 정상 출처=캡처, 쉬운 구분 단서. 공격 하나 빼기는 4분류 재현율이 아니라 경보율"),
         ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
