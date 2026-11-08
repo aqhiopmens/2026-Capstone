@@ -53,6 +53,7 @@ class Flow:
     times: list = field(default_factory=list)  # 같은 위치 패킷의 start_ts 대비 경과 초
     seq_ref: dict = field(default_factory=dict)  # 방향별 기준 순서 번호(첫 페이로드)
     ranges: dict = field(default_factory=dict)   # 방향별 이미 받은 바이트 구간(병합된 [시작, 끝) 목록)
+    server_port: int = SERVER_PORT
 
 
 def iter_tcp_packets(path):
@@ -64,10 +65,12 @@ def iter_tcp_packets(path):
     skipped = defaultdict(int)
     with open(path, "rb") as handle, mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ) as mm:
         magic = mm[:4]
-        if magic != b"\xd4\xc3\xb2\xa1":
-            raise ValueError(f"지원하지 않는 pcap 형식: {magic.hex()} (리틀엔디안 마이크로초 classic만 지원)")
-        if struct.unpack_from("<I", mm, 20)[0] != 1:
-            raise ValueError("이더넷(linktype 1) 캡처만 지원합니다")
+        if magic not in (b"\xd4\xc3\xb2\xa1", b"\x4d\x3c\xb2\xa1"):  # 둘째는 나노초(dumpcap -F pcap 기본)
+            raise ValueError(f"지원하지 않는 pcap 형식: {magic.hex()} (리틀엔디안 classic만 지원)")
+        scale = 1e6 if magic[0] == 0xD4 else 1e9
+        linktype = struct.unpack_from("<I", mm, 20)[0]
+        if linktype not in (0, 1):  # 0 = Npcap loopback(4바이트 헤더). 통제 수집 코드 검증용
+            raise ValueError("이더넷(linktype 1)·loopback(0) 캡처만 지원합니다")
         pos, size = 24, len(mm)
         while pos + 16 <= size:
             ts_s, ts_u, incl, _ = struct.unpack_from("<IIII", mm, pos)
@@ -80,7 +83,9 @@ def iter_tcp_packets(path):
                 skipped["short_frame"] += 1
                 continue
             ethertype, off = struct.unpack_from(">H", mm, start + 12)[0], 14
-            if ethertype == 0x8100 and incl >= 18:
+            if linktype == 0:
+                ethertype, off = 0x0800 if struct.unpack_from("<I", mm, start)[0] == 2 else 0, 4
+            elif ethertype == 0x8100 and incl >= 18:
                 ethertype, off = struct.unpack_from(">H", mm, start + 16)[0], 18
             if ethertype != 0x0800:
                 skipped["non_ipv4"] += 1
@@ -109,7 +114,7 @@ def iter_tcp_packets(path):
             if payload < 0:
                 skipped["bad_length"] += 1
                 continue
-            yield (ts_s + ts_u / 1e6, socket.inet_ntoa(mm[start + off + 12:start + off + 16]), sport,
+            yield (ts_s + ts_u / scale, socket.inet_ntoa(mm[start + off + 12:start + off + 16]), sport,
                    socket.inet_ntoa(mm[start + off + 16:start + off + 20]), dport, mm[tcp + 13], seq,
                    payload), skipped
 
@@ -141,8 +146,8 @@ def record_segment(flow, direction, seq, length):
     return True
 
 
-def assemble_flows(path):
-    """443 포트 TCP 패킷을 플로우로 묶는다. (flows, skipped, total_tcp_packets) 반환.
+def assemble_flows(path, ports=(SERVER_PORT,)):
+    """ports(기본 443) TCP 패킷을 플로우로 묶는다. (flows, skipped, total_tcp_packets) 반환.
 
     플로우 경계: 마지막 패킷 후 IDLE_TIMEOUT 초 경과, 또는 이미 페이로드가 오갔거나 FIN/RST로 끝난
     4-튜플에 SYN(ACK 없음)이 다시 도착하면 새 플로우. 같은 방향에서 이미 받은 바이트 구간만 다시 온
@@ -153,10 +158,10 @@ def assemble_flows(path):
     for packet, skipped in iter_tcp_packets(path):
         ts, src, sport, dst, dport, flags, seq, plen = packet
         tcp_packets += 1
-        if dport == SERVER_PORT:
-            key, direction = (src, sport, dst), 1
-        elif sport == SERVER_PORT:
-            key, direction = (dst, dport, src), -1
+        if dport in ports:
+            key, direction = (src, sport, dst, dport), 1
+        elif sport in ports:
+            key, direction = (dst, dport, src, sport), -1
         else:
             continue
         flow = active.get(key)
@@ -167,7 +172,7 @@ def assemble_flows(path):
             flow = None
         if flow is None:
             flow = active[key] = Flow(key[0], key[1], key[2], ts, ts,
-                                      midstream=not (is_syn and direction == 1))
+                                      midstream=not (is_syn and direction == 1), server_port=key[3])
         flow.packets += 1
         flow.last_ts = ts
         if flags & (FIN | RST):
