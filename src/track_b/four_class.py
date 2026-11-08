@@ -122,8 +122,7 @@ def posthoc_main(run_id):
     meta = json.loads((out / "metadata.json").read_text(encoding="utf-8"))
     meta["posthoc"] = dict(files=["by_source.csv", "macro_f1_without_new_victim.csv"], predictions_sha256=sha256_file(path), code_sha256=sha256_file(Path(__file__)),
                            note="재학습 없이 저장 예측에서 계산. macro_f1_without_new_victim은 새 피해자 .88.81 공격 행을 뺀 시험(C1 같은 분포)")
-    (out / "metadata.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "
-", encoding="utf-8")
+    (out / "metadata.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def main():
