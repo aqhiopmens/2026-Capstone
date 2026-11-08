@@ -212,7 +212,7 @@ def curl_path():
     return system32 if sys.platform == "win32" and os.path.exists(system32) else "curl"
 
 
-def run_requests(host, port, reqs, rng, passwords):
+def run_requests(host, port, reqs, rng, passwords, conns):
     """requests 세션 하나 = 에피소드 하나. 쿠키 저장을 끈다(정상에만 생기는 Cookie 헤더 비대칭 방지). 요청 사이 U(0.02,0.2)초.
     훅이 전역을 바꾸므로 러너는 단일 스레드로만 쓴다(병렬화 금지)."""
     import http.cookiejar
@@ -220,7 +220,7 @@ def run_requests(host, port, reqs, rng, passwords):
     import urllib3
     from urllib3.connection import HTTPSConnection
 
-    original, conns, out = HTTPSConnection.connect, [], []
+    original, out = HTTPSConnection.connect, []
 
     def connect(self):
         t0 = time.time()
@@ -243,10 +243,10 @@ def run_requests(host, port, reqs, rng, passwords):
                 out.append((resp.status_code, req["method"] == "POST" and resp.status_code == 200 and resp.content == b"welcome"))
     finally:
         HTTPSConnection.connect = original
-    return conns, out, ""
+    return out, ""
 
 
-def run_curl(host, port, reqs, rng, passwords):
+def run_curl(host, port, reqs, rng, passwords, conns):
     """curl 한 번 호출 = 에피소드 하나(--next로 한 연결에 여러 요청, 지연 없이 연속). 로컬 주소·응답 코드·본문 크기는 -w로 받는다.
     --next는 앞 요청의 옵션을 모두 초기화하므로 요청마다 같은 옵션을 다시 준다(연결은 같은 프로세스 안에서 재사용됨)."""
     null = "NUL" if sys.platform == "win32" else "/dev/null"
@@ -259,16 +259,20 @@ def run_curl(host, port, reqs, rng, passwords):
         if req["method"] == "POST":
             cmd += ["-d", f"u={USER}&p={pw}"]
         cmd.append(f"https://{host}:{port}{req['path']}")
-    t0 = time.time()
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-    lines = [l.split() for l in proc.stdout.strip().splitlines() if l.strip()]
-    conns, out = [], []
+    t0, out, note = time.time(), [], ""
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        stdout, rc, err = proc.stdout, proc.returncode, proc.stderr
+    except subprocess.TimeoutExpired as exc:  # 부분 출력(이미 맺은 연결의 포트)을 보존한다
+        raw = exc.stdout or ""
+        stdout, rc, err = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw, -1, "timeout"
+    lines = [l.split() for l in stdout.strip().splitlines() if l.strip()]
     for (ip, cport, code, size), req in zip([l for l in lines if len(l) == 4], reqs):
         if not any(c["client_port"] == int(cport) for c in conns):
             conns.append(dict(client_ip=ip, client_port=int(cport), t_start=t0))
         out.append((int(code), req["method"] == "POST" and code == "200" and size == "7"))
-    note = f"rc={proc.returncode} {proc.stderr.strip()[:80]}" if proc.returncode else ""
-    return conns, out, note
+    note = f"rc={rc} {err.strip()[:80]}" if rc else ""
+    return out, note
 
 
 def episode_problem(reqs, conns, res, note=""):
@@ -285,10 +289,10 @@ def episode_problem(reqs, conns, res, note=""):
     return ""
 
 
-def do_episode(impl, host, port, reqs, rng):
+def do_episode(impl, host, port, reqs, rng, conns):
     passwords = [password_for(r, rng) for r in reqs]
-    conns, res, note = (run_requests if impl == "requests" else run_curl)(host, port, reqs, rng, passwords)
-    return conns, res, passwords, note
+    res, note = (run_requests if impl == "requests" else run_curl)(host, port, reqs, rng, passwords, conns)
+    return res, passwords, note
 
 
 MAX_ATTEMPTS, MAX_CONSECUTIVE_FAILS = 10, 20
@@ -303,12 +307,12 @@ def run_phase(args, server, phase, plan, rng, log, attempts):
             ep_type, reqs = browse_plan() if subset == "browse" else episode_plan(cls, first, m)
             ep_no += 1
             for attempt in range(1, MAX_ATTEMPTS + 1):
-                t_ep = time.time()
+                t_ep, conns = time.time(), []  # conns는 예외가 나도 그때까지 맺은 연결(포트)을 남긴다
                 try:
-                    conns, res, passwords, note = do_episode(impl, args.host, port, reqs, rng)
+                    res, passwords, note = do_episode(impl, args.host, port, reqs, rng, conns)
                     reason = episode_problem(reqs, conns, res, note)
-                except Exception as exc:  # 연결 실패·시간 초과 등: 제외하고 재수행
-                    conns, res, passwords, reason = [], [], [], f"error:{type(exc).__name__}"
+                except Exception as exc:  # 연결 실패·응답 시간 초과 등: 제외하고 재수행
+                    res, passwords, reason = [], [], f"error:{type(exc).__name__}"
                 t_end = time.time()
                 key = dict(phase=phase, round=rnd, episode=ep_no, attempt=attempt, cls=cls, impl=impl, subset=subset, ep_type=ep_type, m=len(reqs),
                            first=reqs[0]["method"], server_name=server)
@@ -388,6 +392,13 @@ MIN_REF = 30  # 시계 offset 기준 연결 수 최소값(미달이면 파일럿
 MAD_MAX_S, LOST_MAX, MIN_GAP_S = 0.2, 0.02, 600.0  # 파일럿 승인 기준(문서 3절·2절)
 
 
+def expected_groups(train_rounds, test_rounds):
+    """실행 설정이 만드는 모든 (서버, 단계) 그룹과 (서버, 단계, 라운드, 구현, 클래스) 칸."""
+    phases = (("train", train_rounds), ("test", test_rounds))
+    return ([(ph, sv) for ph, _ in phases for sv in SERVERS],
+            [(sv, ph, rd, im, cl) for ph, n in phases for sv in SERVERS for rd in range(1, n + 1) for im in ("requests", "curl") for cl in ("normal", "attack")])
+
+
 def key4(row):
     return row["client_ip"], row["client_port"], row["server_ip"], row["server_port"]
 
@@ -413,15 +424,17 @@ def estimate_offset(logs, server_log, min_ref=MIN_REF):
     return offset, [d - offset for d in diffs], len(diffs)
 
 
-def group_offsets(logs, server_log, min_ref=MIN_REF):
-    """(단계, 서버)별 offset과 보정 후 잔차(전체·구현별·라운드별 중앙값). 한 그룹의 기준 연결이 모자라면 예외."""
+def group_offsets(logs, server_log, min_ref=MIN_REF, expected=None):
+    """(단계, 서버)별 offset과 보정 후 잔차(전체·구현별·라운드별 중앙값). expected(예상 그룹 목록)의 모든 그룹에 기준 연결이 min_ref개 이상 있어야 하며,
+    하나라도 없거나 모자라면 예외(전체 offset으로 대체하지 않음)."""
     groups = {}
     for r, s in unique_pairs(logs, server_log):
         groups.setdefault((r["phase"], r["server_name"]), []).append((r, s["t_accept"] - r["t_start"]))
+    for key in (expected if expected is not None else groups):
+        if len(groups.get(key, [])) < min_ref:
+            raise ValueError(f"파일럿 불합격: {key} 기준 연결 {len(groups.get(key, []))}개 < {min_ref} (전체 offset으로 대체하지 않음)")
     out = {}
     for key, items in groups.items():
-        if len(items) < min_ref:
-            raise ValueError(f"파일럿 불합격: {key} 기준 연결 {len(items)}개 < {min_ref}")
         off = statistics.median(d for _, d in items)
         res = [(r, d - off) for r, d in items]
         med = lambda xs: round(statistics.median(xs), 4)
@@ -467,7 +480,7 @@ def first_request_index(seq):
     return pos[1] if len(pos) >= 2 else None
 
 
-def check_quota(rows):
+def check_quota(rows, expected_cells=None):
     """주(main) 연결 쿼터·배정표 일치 검사. 라운드·서버·단계·칸마다 정확히 배정표의 10연결((first, m, 요청 종류, 암호 길이) 일치), 정상 7/2/1,
     인증 결과가 배정(expect_ok)과 일치, 같은 (first,m)에서 클래스 간 요청 종류·암호 길이 동일. 위반 목록 반환."""
     bad, cells = [], {}
@@ -479,6 +492,9 @@ def check_quota(rows):
         plans = [(f, m, episode_plan(cls, f, m)) for f, m in CELL_SPECS]
         ref[cls] = sorted((f, m, "".join(q["method"][0] for q in reqs), tuple(q["pw_len"] for q in reqs)) for f, m, (_, reqs) in plans)
         ref[cls + "_auth"] = {(f, m): [q["expect_ok"] for q in reqs] for f, m, (_, reqs) in plans}
+    for k in (expected_cells or []):
+        if k not in cells:
+            bad.append(f"{k}: 칸이 비어 있음(연결 0)")
     for k, rs in cells.items():
         got = sorted((r["first"], r["m"], r["kinds"], tuple(r["pw_lens"])) for r in rs)
         if got != ref[k[4]]:
@@ -494,13 +510,13 @@ def check_quota(rows):
 
 
 def breakdown(logs, matched=(), ambiguous=(), offset=0.0):
-    """(cls, impl, subset)별 분모: 연결 수·에피소드 수·요청 수·인증 성공/실패·매칭·모호·미매칭·시각 오차 최댓값(보정 후, 초)·손실 비율."""
+    """(서버, 단계, cls, impl, subset)별 분모: 연결 수·에피소드 수·요청 수·인증 성공/실패·매칭·모호·미매칭·시각 오차 최댓값(보정 후, 초)·손실 비율."""
     off = offset if callable(offset) else (lambda r: offset)
     hit = {id(r): flow for flow, r in matched}
     amb = {id(r) for _, rs in ambiguous for r in rs}
     out = {}
     for r in logs:
-        d = out.setdefault(f"{r['cls']}/{r['impl']}/{r.get('subset', 'main')}", dict(conns=0, episodes=set(), requests=0, auth_ok=0, auth_fail=0,
+        d = out.setdefault(f"{r.get('server_name')}/{r.get('phase')}/{r['cls']}/{r['impl']}/{r.get('subset', 'main')}", dict(conns=0, episodes=set(), requests=0, auth_ok=0, auth_fail=0,
                                                                                      matched=0, ambiguous=0, unmatched=0, max_resid_s=0.0))
         d["conns"] += 1
         d["episodes"].add((r.get("phase"), r.get("server_name"), r.get("episode")))  # 에피소드 번호는 단계·서버마다 다시 시작한다
@@ -519,7 +535,7 @@ def breakdown(logs, matched=(), ambiguous=(), offset=0.0):
         d["episodes"] = len(d["episodes"])
         d["max_resid_s"] = round(d["max_resid_s"], 3)
         d["requests_per_conn"] = round(d["requests"] / d["conns"], 2)
-        d["lost_frac"] = round((d["ambiguous"] + d["unmatched"]) / d["conns"], 4)  # 칸별 (모호+미매칭) 비율: 파일럿 합격 ≤0.02
+        d["lost_frac"] = round((d["ambiguous"] + d["unmatched"]) / d["conns"], 4)  # (서버, 단계, 구현, 클래스)별 (모호+미매칭) 비율: 파일럿 합격 ≤0.02 (합쳐서 희석하지 않음)
     return out
 
 
@@ -544,9 +560,15 @@ def match_main(args):
     logs, raw_server = read_jsonl(args.logs), read_jsonl([args.server_log])
     server_log = [r for r in raw_server if "t_accept" in r]
     hs_fail = sum(r.get("event") == "hs_fail" for r in raw_server)
+    meta_path = Path(args.logs[0]).with_suffix(".meta.json")
+    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    train_r, test_r = args.train_rounds or meta.get("train_rounds"), args.test_rounds or meta.get("test_rounds")
+    if train_r is None or test_r is None:
+        raise ValueError("예상 라운드 수를 알 수 없습니다: 러너 .meta.json이 없으면 --train-rounds/--test-rounds를 주세요")
+    exp_groups, exp_cells = expected_groups(train_r, test_r)
     offset, resid, n_ref = estimate_offset(logs, server_log, args.min_ref)
-    goff = group_offsets(logs, server_log, args.min_ref)
-    off_of = lambda r: goff[(r["phase"], r["server_name"])]["offset"] if (r["phase"], r["server_name"]) in goff else offset
+    goff = group_offsets(logs, server_log, args.min_ref, exp_groups)  # 예상 그룹마다 기준 연결이 있어야 한다(없으면 불합격, 전체 offset 대체 없음)
+    off_of = lambda r: goff[(r["phase"], r["server_name"])]["offset"]
     matched, unmatched_flows, unmatched_logs, ambiguous = match(flows, logs, off_of, args.tolerance)
     cnt = {}
     for r in server_log:
@@ -573,9 +595,12 @@ def match_main(args):
     by_label = breakdown(logs, matched, ambiguous, off_of)
     matched_rows = [r for _, r in matched]
     gaps = test_gaps(logs)
+    main_cells = {k: v for k, v in by_label.items() if k.endswith("/main")}
+    n_expected_labels = len(SERVERS) * 2 * 2 * 2  # 서버 × 단계 × 구현 × 클래스
     pilot = dict(mad_ok=all(g["mad"] <= MAD_MAX_S for g in goff.values()),
-                 lost_ok=all(v["lost_frac"] <= LOST_MAX for k, v in by_label.items() if k.endswith("/main")),
-                 quota_ok=not check_quota(logs), gap_ok=bool(gaps) and all(v >= MIN_GAP_S for v in gaps.values()))
+                 lost_ok=len(main_cells) == n_expected_labels and all(v["lost_frac"] <= LOST_MAX for v in main_cells.values()),
+                 quota_ok=not check_quota(logs, exp_cells),
+                 gap_ok=set(gaps) == set(SERVERS) and all(v >= MIN_GAP_S for v in gaps.values()))
     report = dict(flows=len(flows), tcp_packets=tcp_packets, pcap_skipped=skipped, flows_with_segment_over_1448=over_mss, runner_rows=len(logs),
                   server_log_rows=len(server_log), server_handshake_failures=hs_fail, matched=len(matched), unmatched_flows=len(unmatched_flows),
                   unmatched_logs=len(unmatched_logs), ambiguous=len(ambiguous), by_label=by_label,
@@ -583,7 +608,7 @@ def match_main(args):
                              resid_p99_s=round(p99(resid), 4), by_group={f"{k[0]}/{k[1]}": {**v, "offset": round(v["offset"], 4)} for k, v in goff.items()},
                              note="필터 전 유일 대응 연결 기준. 서로 다른 사건(accept vs connect 직전)의 지연을 포함하므로 순수 시계오차가 아님"),
                   pcap_minus_accept_s=dict(median=round(statistics.median(lag), 4) if lag else None, p99=round(p99(lag), 4) if lag else None),
-                  test_gap_s=gaps, quota_violations=check_quota(logs), quota_violations_matched_rows=check_quota(matched_rows)[:20], pilot_checks=pilot,
+                  test_gap_s=gaps, quota_violations=check_quota(logs, exp_cells), quota_violations_matched_rows=check_quota(matched_rows, exp_cells)[:20], pilot_checks=pilot,
                   tolerance_s=args.tolerance, created=dt.datetime.now().isoformat(timespec="seconds"))
     Path(args.out).with_suffix(".match.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + chr(10), encoding="utf-8")
     print(json.dumps(dict(pilot_checks=pilot, matched=len(matched), ambiguous=len(ambiguous), unmatched_flows=len(unmatched_flows), skipped=skipped,
@@ -619,6 +644,8 @@ def main():
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--tolerance", type=float, default=1.0)
     p.add_argument("--min-ref", type=int, default=MIN_REF)
+    p.add_argument("--train-rounds", type=int, help="예상 학습 라운드 수(기본: 러너 .meta.json)")
+    p.add_argument("--test-rounds", type=int, help="예상 시험 라운드 수(기본: 러너 .meta.json)")
     args = parser.parse_args()
     {"certs": lambda: make_certs(args.out), "serve": lambda: serve(args.certs, args.bind, args.accept_log), "run": lambda: run(args),
      "capture": lambda: capture(args), "match": lambda: match_main(args)}[args.cmd]()

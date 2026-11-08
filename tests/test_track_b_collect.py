@@ -3,7 +3,7 @@ import random
 import pytest
 
 from src.track_b.collect import (CELL_SPECS, CORRECT_LEN, PASSWORD, check_quota, episode_plan, episode_problem, estimate_offset, first_request_index,
-                                 group_offsets, match, password_for, round_episodes)
+                                 breakdown, expected_groups, group_offsets, match, password_for, round_episodes, run_phase)
 from src.track_b.pcap_flows import Flow
 
 
@@ -96,3 +96,45 @@ def test_group_offsets_per_phase_server_and_insufficient_reference():
     assert round(out[("train", "S1")]["offset"], 3) == 2.0 and out[("train", "S1")]["n"] == 40
     with pytest.raises(ValueError):
         group_offsets(logs[:10], server[:10], min_ref=30)
+
+
+def test_loss_rate_is_per_server_phase_cell_not_diluted():
+    # S1 시험 칸 100연결 중 3개 손실(3%) + 다른 칸 500연결 손실 0: 합치면 0.5%로 희석되지만 칸별로는 3%라 불합격이어야 한다
+    logs, matched = [], []
+    for sv, phase, n in (("S1", "test", 100), ("S2", "test", 250), ("S3", "train", 250)):
+        for i in range(n):
+            r = dict(row(50000 + len(logs), float(len(logs)), "normal", phase=phase, subset="main", episode=i, kinds="G", auth_ok=[False]), server_name=sv)
+            logs.append(r)
+            if not (sv == "S1" and i < 3):
+                matched.append((flow(r["client_port"], r["t_start"]), r))
+    out = breakdown(logs, matched, [], 0.0)
+    assert out["S1/test/normal/curl/main"]["lost_frac"] == 0.03 and out["S2/test/normal/curl/main"]["lost_frac"] == 0.0
+
+
+def test_missing_cells_and_groups_fail():
+    exp_groups, exp_cells = expected_groups(1, 1)
+    assert len(exp_groups) == 6 and len(exp_cells) == 6 * 4
+    assert any("칸이 비어 있음" in v for v in check_quota([], exp_cells))  # 빈 자료도 위반
+    logs = [dict(row(p, float(p)), phase="train", server_name="S1", impl="curl", round=1) for p in range(50000, 50040)]
+    server = [dict(client_ip="10.0.0.2", client_port=p, server_port=8443, t_accept=float(p) + 1.0) for p in range(50000, 50040)]
+    with pytest.raises(ValueError):  # 시험·다른 서버 그룹에 기준 연결이 하나도 없으면 전체 offset으로 대체하지 않고 불합격
+        group_offsets(logs, server, min_ref=30, expected=exp_groups)
+
+
+def test_partial_connections_survive_exception(monkeypatch, tmp_path):
+    import json as _json
+    import src.track_b.collect as c
+
+    def fake(impl, host, port, reqs, rng, conns):
+        conns.append(dict(client_ip="10.0.0.2", client_port=51234, t_start=1.0))  # 연결을 맺은 뒤 응답 timeout
+        raise TimeoutError
+
+    monkeypatch.setattr(c, "do_episode", fake)
+    monkeypatch.setattr(c, "MAX_ATTEMPTS", 2)
+    monkeypatch.setattr(c.time, "sleep", lambda s: None)
+    log, att = c.Log(tmp_path / "l.jsonl"), c.Log(tmp_path / "a.jsonl")
+    args = type("A", (), {"host": "10.0.0.1"})()
+    with pytest.raises(RuntimeError):  # 쿼터를 못 채우면 중단
+        run_phase(args, "S1", "train", [[("normal", "curl", "GET", 1, "main")]], random.Random(0), log, att)
+    rows = [_json.loads(l) for l in (tmp_path / "a.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert rows and rows[0]["conns"] == [["10.0.0.2", 51234]] and rows[0]["reason"].startswith("error:")
