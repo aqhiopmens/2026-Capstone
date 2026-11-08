@@ -1,6 +1,6 @@
 # B: 4클래스 PoC와 공격 하나 빼기 (안건 9)
 
-정상 / Probing / Bruteforce-XML / Bruteforce-HTTPS 4클래스로 확장하고, 공격 유형 하나를 학습에서 뺐을 때의 경보율을 본다. PoC이며 캡처 단위 잠정 라벨, Windows 탐색 결과다. 코드 `src/track_b/https_probing.py`(Probing 추출·감사), `src/track_b/four_class.py`(평가), 결과 `outputs/results/track_b_https_probing_2026-11-08_v1/`, `track_b_four_class_2026-11-08_v1/`(본 평가) · `track_b_four_class_2026-11-08_v2/`(같은 설정 재실행, 공격 하나 빼기 행별 예측 저장).
+정상 / Probing / Bruteforce-XML / Bruteforce-HTTPS 4클래스로 확장하고, 공격 유형 하나를 학습에서 뺐을 때의 경보율을 본다. PoC이며 캡처 단위 잠정 라벨, Windows 탐색 결과다. 코드 `src/track_b/https_probing.py`(Probing 추출·감사), `src/track_b/four_class.py`(평가), 결과 `outputs/results/track_b_https_probing_2026-11-08_v1/`, `track_b_four_class_2026-11-08_v1/`(본 평가, Python 3.12.14 / scikit-learn 1.6.1) · `track_b_four_class_2026-11-08_v2/`(**같은 입력·분할·하이퍼파라미터, 다른 패키지 환경의 별도 재실행**: Python 3.14.3 / scikit-learn 1.8.0 / numpy 2.4.3 / pandas 3.0.1. 공격 하나 빼기 행별 예측 저장). v2는 기존과 같은 환경·같은 코드의 재현이라고 읽지 않는다. 점수 24개, 혼동 384개, 경보 집계 144개는 v1과 수치가 같았다.
 
 ## 데이터와 라벨 (성능 확인 전 고정)
 - Probing: HIKARI SCANCMS `Sunday_2021-05-02_1206.pcap`(2,308,628,480 B, md5가 Zenodo 값과 일치)에서 443 플로우 44,029개(payload>0: probing 38,168 + 정상 5,861). 규칙: 공격자 103.255.15.150 → 피해자 128.199.242.104:443 = probing, 그 밖의 443 = 정상.
@@ -24,7 +24,7 @@
 | 원본 seq | 10 | 0.845 | 0.9994 |
 | 앞 3칸 마스킹 | 5 | 0.818 | 0.9654 |
 | 앞 3칸 마스킹 | 10 | 0.844 | 0.9986 |
-- 전체 시험의 0.845는 새 피해자 .88.81 3,951행이 전부 정상으로 판정(recall 0)되어서 생긴 값이다(마스킹 k=5만 198행이 XML로 분류). 이 행을 빼면 4클래스 모두 0.999 이상이다. 새 피해자 일반화 실패는 4클래스에서도 같다.
+- 전체 시험의 0.845는 새 피해자 .88.81 3,951행이 전부 정상으로 판정(recall 0)되어서 생긴 값이다(마스킹 k=5만 198행이 XML로 분류). 이 행을 빼면 **원본 seq에서는** 4클래스 macro-F1이 0.999 이상이다(k=5 0.9995, k=10 0.9994). 앞 3칸 마스킹 k=5는 0.9654로 이보다 낮다. 새 피해자 일반화 실패는 4클래스에서도 같다.
 - 클래스별 recall(RF, k=10, 원본): 정상 1.000, probing 1.000, XML 1.000, HTTPS(.242.104) 0.996, HTTPS(.88.81) 0.000. 클래스별 점수·혼동 행렬은 `metrics.csv`·`confusion.csv`, 출처별은 `by_source.csv`.
 - **쉬운 구분 단서**: 각 공격 유형이 서로 다른 도구·서버·캡처에서 나왔고 정상의 출처가 곧 캡처라, 유형 구분과 캡처 구분이 분리되지 않는다. 높은 점수는 분류 능력의 일반 근거가 아니다. Probing은 CSV로 확인되지 않은 잠정 라벨이다.
 
