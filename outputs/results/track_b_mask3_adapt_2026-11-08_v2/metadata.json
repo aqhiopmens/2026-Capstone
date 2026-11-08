@@ -1,0 +1,24 @@
+{
+  "run_id": "2026-11-08_v2",
+  "b1_base": {
+    "path": "predictions\\track_b_https_b1_2026-11-05_v3\\b1_test_predictions.csv.gz",
+    "sha256": "fe9279d428ef00182ad14b19ae48b8f53bb40076d3e22920eb1aa2da9eb05c3a"
+  },
+  "b1_new": {
+    "path": "predictions\\track_b_https_b1_mask3_2026-11-06_v1\\b1_test_predictions.csv.gz",
+    "sha256": "c9e131755a1e65f9c4e636c113ba83048fa9d852f484eca63017ccfc0b7fce76"
+  },
+  "e2022_base": {
+    "path": "predictions\\track_b_https2022_eval_2026-11-05_v1\\eval2022_predictions.csv.gz",
+    "sha256": "388822f792ecdcbb19926f1f39af79566891cde25cea357de11b6ac5d26e069b"
+  },
+  "e2022_new": {
+    "path": "predictions\\track_b_https2022_eval_mask3_2026-11-06_v1\\eval2022_predictions.csv.gz",
+    "sha256": "a5bdcb696cd1c6714c24e61b889e05e35bff6e5fa70057879e0a7cb14b5a92b2"
+  },
+  "code_sha256": {
+    "src/track_b/mask3.py": "a32948fa1e3f2804157c2754cee6a2ee726dc897a5fc68760398f48126960e54"
+  },
+  "big_delta": 0.05,
+  "note": "저장 예측에서 계산(재학습 없음). 같은 시험 행임을 행 키로 확인. 양성=공격. 원본 N=0 등 같은 (k,seed,n) 짝"
+}

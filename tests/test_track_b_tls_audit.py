@@ -35,3 +35,23 @@ class TlsAuditTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TlsAuditBoundaryTests(unittest.TestCase):
+    def test_no_record_overlap_is_unconfirmed_not_boundary(self):
+        self.assertEqual(describe_packet((1, 0, 9), {1: []}), ("해석 불가(레코드 밖)", "미확인"))
+
+    def test_packet_starting_inside_unparsed_gap_is_unconfirmed(self):
+        recs = {1: parse_records(b"\x00" * 10 + record(22, hs(1, b"a" * 5)))}  # 앞 10바이트가 헤더로 해석되지 않아 레코드 없음
+        self.assertEqual(describe_packet((1, 0, 30), recs)[1], "미확인")
+
+    def test_reorder_before_first_packet_and_gap_bytes_are_counted(self):
+        stats = {}
+        streams, placed = reassemble([(1, 1000, b"a" * 10), (1, 990, b"b" * 5), (1, 1030, b"c" * 10)], stats)
+        self.assertEqual((stats["pre_base"], stats["gap_bytes"], len(placed)), (1, 25, 3))
+        self.assertEqual(placed[1][1], 0)  # 재정렬 패킷이 스트림 맨 앞으로
+
+    def test_truncated_final_record_is_flagged(self):
+        rec = record(22, hs(1, b"a" * 30))[:20]
+        self.assertFalse(parse_records(rec)[0][4])
+        self.assertIn("잘림", describe_packet((1, 0, 20), {1: parse_records(rec)})[0])

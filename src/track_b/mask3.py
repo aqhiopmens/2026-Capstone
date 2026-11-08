@@ -105,6 +105,21 @@ def pair_metrics(base, new, group):
     return both.assign(experiment=group), summ.assign(experiment=group)
 
 
+def role_recall(base, new):
+    """피해자(role)별 공격 recall 짝: (k, n)별 시드 평균과 시험 행 수. role: attack=.88.81, a242=.242.104.
+    pair_metrics의 recall은 두 피해자를 합친 전체 공격(all_attack) 값이라 따로 낸다."""
+    def one(frame, tag):
+        g = frame[frame.role != "benign"].groupby(["k", "n", "seed", "role"]).pred_attack.agg(["mean", "size"])
+        g = g.rename(columns={"mean": f"recall_{tag}", "size": "rows"}).reset_index()
+        return g.groupby(["k", "n", "role"]).agg(**{f"recall_{tag}": (f"recall_{tag}", "mean"), "rows": ("rows", "first")}).reset_index()
+    out = one(base, "seq").merge(one(new, "mask3"), on=["k", "n", "role"], validate="one_to_one")
+    if not (out.rows_x == out.rows_y).all():
+        raise ValueError("원본과 마스킹의 피해자별 시험 행 수가 다릅니다")
+    out = out.drop(columns="rows_y").rename(columns={"rows_x": "rows"})
+    out["d_recall"] = out.recall_mask3 - out.recall_seq
+    return out.replace({"role": {"attack": ".88.81", "a242": ".242.104"}})
+
+
 def compare_main(args):
     from src.common.config import DATA_DIR
 
@@ -126,9 +141,14 @@ def compare_main(args):
     p40 = pair_metrics(metrics_2022(eb).drop(columns="kind"), metrics_2022(en).drop(columns="kind"), "40_2022")
     rows = pd.concat([p39[0], p40[0]], ignore_index=True)
     summ = pd.concat([p39[1], p40[1]], ignore_index=True)
+    rows["recall_population"] = summ["recall_population"] = "all_attack(.88.81+.242.104)"  # 2022는 시험 공격 전체
+    rows.loc[rows.experiment == "40_2022", "recall_population"] = "all_attack(2022)"
+    summ.loc[summ.experiment == "40_2022", "recall_population"] = "all_attack(2022)"
+    by_role = role_recall(b1b, b1n)
     out.mkdir(parents=True)
     rows.to_csv(out / "paired_conditions.csv", index=False)
     summ.to_csv(out / "paired_summary.csv", index=False)
+    by_role.to_csv(out / "paired_recall_by_victim_39.csv", index=False)
     (out / "metadata.json").write_text(json.dumps(dict(
         run_id=args.run_id, **{k: dict(path=str(v.relative_to(DATA_DIR)), sha256=sha256_file(v)) for k, v in files.items()},
         code_sha256={"src/track_b/mask3.py": sha256_file(Path(__file__))}, big_delta=BIG_DELTA,
