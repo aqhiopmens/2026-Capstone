@@ -42,12 +42,14 @@ def pair_rf_knn(rf, knn):
     return both, both.groupby(["k", "n"])[cols].mean().reset_index()
 
 
-def exact_split(pred, attack_mask):
+def exact_split(pred, attack_mask, by=("k", "n")):
     """kNN 예측에서 시험 공격 행을 정확 키 일치(거리 0)와 미관측 값으로 나눈 recall·분모. pred: pred_attack·exact 열이 있는 DataFrame."""
     rows = []
-    for (k, n), g in pred[attack_mask(pred)].groupby(["k", "n"]):
+    for keys, g in pred[attack_mask(pred)].groupby(list(by)):
+        k, n = keys[0], keys[1]
+        extra = dict(zip(by[2:], keys[2:]))
         e, x = g[g.exact == 1], g[g.exact == 0]
-        rows.append(dict(k=k, n=n, attack_rows=len(g) // g.seed.nunique(), exact_rows=len(e) / g.seed.nunique(), recall_exact=e.pred_attack.mean() if len(e) else float("nan"),
+        rows.append(dict(k=k, n=n, **extra, attack_rows=len(g) // g.seed.nunique(), exact_rows=len(e) / g.seed.nunique(), recall_exact=e.pred_attack.mean() if len(e) else float("nan"),
                          unseen_rows=len(x) / g.seed.nunique(), recall_unseen=x.pred_attack.mean() if len(x) else float("nan")))
     return pd.DataFrame(rows)
 
@@ -82,9 +84,10 @@ def compare_main(args):
     r40, s40 = pair_rf_knn(metrics_2022(er).drop(columns="kind"), metrics_2022(ek).drop(columns="kind"))
     x39 = exact_split(b1k, lambda p: p.role != "benign")
     x40 = exact_split(ek[ek.in_test == 1], lambda p: p.actual == ATTACK)
+    x39r = exact_split(b1k, lambda p: p.role != "benign", by=("k", "n", "role"))  # 피해자(role)별 분할
     out.mkdir(parents=True)
     for name, frame in (("paired_39_conditions", r39.assign(experiment="39_88_81")), ("paired_39_summary", s39), ("paired_40_conditions", r40.assign(experiment="40_2022")),
-                        ("paired_40_summary", s40), ("exact_split_39", x39), ("exact_split_40", x40)):
+                        ("paired_40_summary", s40), ("exact_split_39", x39), ("exact_split_39_by_role", x39r), ("exact_split_40", x40)):
         frame.to_csv(out / f"{name}.csv", index=False)
     (out / "metadata.json").write_text(json.dumps(dict(
         run_id=args.run_id, **{k: dict(path=str(v.relative_to(DATA_DIR)), sha256=sha256_file(v)) for k, v in files.items()},
