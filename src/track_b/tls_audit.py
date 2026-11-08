@@ -34,26 +34,28 @@ GROUPS = [("2021-04-11", "Sunday_2021-04-11_2154.pcap", "attack_242104"), ("2021
 
 
 def parse_records(stream):
-    """방향별 바이트 스트림을 TLS 레코드 목록으로. 각 항목: (시작 오프셋, 레코드 종류, 레코드 길이, 핸드셰이크 메시지 이름 목록, 본문이 스트림 안에 다 있는지). 헤더가 비정상이면 중단한다."""
+    """방향별 바이트 스트림을 TLS 레코드 목록으로. 각 항목: (시작 오프셋, 레코드 종류, 레코드 길이, 핸드셰이크 메시지 이름 목록, 완전한지: 본문이 스트림 안에 다 있고, 평문 핸드셰이크면 메시지 길이 선언이 본문과 정확히 맞는지). 헤더가 비정상이면 중단한다."""
     out, pos = [], 0
     while pos + 5 <= len(stream):
         rtype, ver, length = stream[pos], stream[pos + 1], struct.unpack_from(">H", stream, pos + 3)[0]
         if rtype not in REC_TYPES or ver != 3 or length > 18432:
             break
-        msgs = []
+        msgs, hs_ok = [], True
         if rtype == 22:  # 평문 핸드셰이크 레코드 안의 메시지(여러 개 가능, 잘리면 앞부분만)
             p, end = pos + 5, min(pos + 5 + length, len(stream))
             while p + 4 <= end:
                 msgs.append(HS_TYPES.get(stream[p], f"hs{stream[p]}"))
                 p += 4 + int.from_bytes(stream[p + 1:p + 4], "big")
-        out.append((pos, REC_TYPES[rtype], length, msgs, pos + 5 + length <= len(stream)))
+            hs_ok = p == pos + 5 + length  # 메시지 길이 선언이 레코드 본문과 정확히 맞아야 완전(선언이 본문을 넘거나 남으면 부분·미확인)
+        out.append((pos, REC_TYPES[rtype], length, msgs, pos + 5 + length <= len(stream) and hs_ok))
         pos += 5 + length
     return out
 
 
 def reassemble(packets, stats=None):
     """패킷 목록[(방향, tcp seq, 바이트)]에서 방향별 스트림과 패킷별 (방향, 스트림 오프셋, 길이)를 만든다. 이미 받은 구간만 다시 온 패킷은 버린다.
-    첫 패킷보다 seq가 앞선(재정렬) 패킷은 가장 앞선 seq를 스트림 0으로 잡아 제자리에 놓고 stats['pre_base']로 센다. 받지 못한 구간(gap)은 0으로 채워지므로 gap_bytes로 따로 센다."""
+    첫 패킷보다 seq가 앞선(재정렬) 패킷은 가장 앞선 seq를 스트림 0으로 잡아 제자리에 놓고 stats['pre_base']로 센다. 받지 못한 구간(gap)은 0으로 채워지므로 gap_bytes로 따로 센다.
+    같은 구간에 다른 바이트가 오면 conflicts로 세고 먼저 본 바이트를 유지한다. 같은 바이트 재전송은 retransmit_same."""
     streams, placed, first, low = {1: bytearray(), -1: bytearray()}, [], {}, {}
     seen = {1: [], -1: []}
     stats = stats if stats is not None else {}
@@ -62,16 +64,27 @@ def reassemble(packets, stats=None):
         first.setdefault(d, seq)
         low[d] = min(low.get(d, 0), rel(d, seq))
     stats["pre_base"] = sum(rel(d, seq) < 0 for d, seq, _ in packets)  # 도착 순서상 첫 패킷보다 앞 seq인 재정렬 패킷 수
+    known = {1: bytearray(), -1: bytearray()}
+    stats["conflicts"] = stats["retransmit_same"] = 0
     for d, seq, data in packets:
         off = rel(d, seq) - low[d]  # 가장 앞선 seq를 스트림 0으로
-        if any(off >= a and off + len(data) <= b for a, b in seen[d]):
+        n, buf, kn = len(data), streams[d], known[d]
+        if len(buf) < off + n:
+            buf.extend(bytes(off + n - len(buf)))
+            kn.extend(bytes(off + n - len(kn)))
+        overlap = [i for i in range(n) if kn[off + i]] if any(kn[off:off + n]) else []
+        if overlap:
+            if any(buf[off + i] != data[i] for i in overlap):
+                stats["conflicts"] += 1  # 같은 seq 구간에 다른 바이트: 재전송이 아니라 충돌(먼저 본 바이트를 유지하고 미확인으로 센다)
+            elif len(overlap) == n:
+                stats["retransmit_same"] += 1
+        if len(overlap) == n:
             continue
-        seen[d].append((off, off + len(data)))
-        buf = streams[d]
-        if len(buf) < off + len(data):
-            buf.extend(bytes(off + len(data) - len(buf)))
-        buf[off:off + len(data)] = data
-        placed.append((d, off, len(data)))
+        seen[d].append((off, off + n))
+        for i in range(n):
+            if not kn[off + i]:
+                buf[off + i], kn[off + i] = data[i], 1
+        placed.append((d, off, n))
     stats["gap_bytes"] = sum(len(streams[d]) - _covered(seen[d]) for d in seen)
     return {d: bytes(b) for d, b in streams.items()}, placed
 
@@ -167,6 +180,8 @@ def main():
     p22 = DATA_DIR / "processed" / f"track_b_https2022_{args.flows_2022_run_id}" / "flows.csv"
     cols = ["pcap", "day", "flow_id", "label", "client_ip", "client_port", "server_ip", "start_ts", "duration", "payload_packets"] + [f"seq_{i}" for i in range(30)]
     flows = pd.concat([pd.read_csv(p21, usecols=cols, keep_default_na=False), pd.read_csv(p22, usecols=cols, keep_default_na=False)], ignore_index=True)
+    span = flows.assign(lo=flows.start_ts - 1.0, hi=flows.start_ts + flows.duration.astype(float) + 2.0)
+    by_tuple = {k: g for k, g in span.groupby(["pcap", "client_ip", "client_port", "server_ip"])}
     sel_rows, pkt_rows, excerpts = [], [], {}
     arows = DATA_DIR / "audit" / f"track_b_tls_audit_{args.run_id}"  # 행별 자료·pcap 발췌는 Git 밖(DATA_DIR/Drive)
     arows.mkdir(parents=True)
@@ -186,10 +201,15 @@ def main():
             mine = [d * n for d, _, n in placed][:FIRST_N]
             theirs = [int(getattr(r, f"seq_{i}")) for i in range(FIRST_N)]
             same = mine == theirs
-            clean = same and stats["gap_bytes"] == 0 and stats["pre_base"] == 0
+            first_end = max((o + n for _, o, n in placed[:FIRST_N]), default=0)  # 앞 FIRST_N 패킷이 닿는 스트림 끝
+            incomplete = sum(1 for d_ in records for rec in records[d_] if not rec[4] and rec[0] < first_end)  # 닿는 레코드 중 미완성(잘림·핸드셰이크 길이 불일치)
+            same_tuple = by_tuple.get((r.pcap, r.client_ip, r.client_port, r.server_ip))
+            overlap = 0 if same_tuple is None else int(((same_tuple.flow_id != r.flow_id) & (same_tuple.lo <= r.start_ts + float(r.duration) + 2.0) & (same_tuple.hi >= r.start_ts - 1.0)).sum())
+            clean = same and stats["gap_bytes"] == 0 and stats["pre_base"] == 0 and stats["conflicts"] == 0 and incomplete == 0 and overlap == 0
             sel_rows.append(dict(group=f"{group[0]}_{group[2]}", pcap=group[1], flow_id=r.flow_id, label=r.label, server_ip=r.server_ip,
                                  start_ts=r.start_ts, payload_packets=r.payload_packets, lengths_match_flows_csv=same,
-                                 gap_bytes=stats["gap_bytes"], pre_base_packets=stats["pre_base"], interpretable=clean))
+                                 gap_bytes=stats["gap_bytes"], pre_base_packets=stats["pre_base"], byte_conflicts=stats["conflicts"],
+                                 retransmit_same=stats["retransmit_same"], incomplete_records=incomplete, epoch_range_overlaps=overlap, interpretable=clean))
             for i, pl in enumerate(placed[:FIRST_N]):
                 desc, boundary = describe_packet(pl, records)
                 pkt_rows.append(dict(group=f"{group[0]}_{group[2]}", flow_id=r.flow_id, idx=i, direction="C->S" if pl[0] == 1 else "S->C",
@@ -212,11 +232,13 @@ def main():
         run_id=args.run_id, seed=SEED, per_group=PER_GROUP, window_s=WINDOW_S, min_payload=MIN_PAYLOAD, first_n=FIRST_N,
         flows_sha256=sha256_file(p21), flows_2022_sha256=sha256_file(p22), code_sha256={"src/track_b/tls_audit.py": sha256_file(Path(__file__))},
         flows_selected=len(sel), identified=int(sel.lengths_match_flows_csv.sum()), interpretable=int(sel.interpretable.sum()),
+        exclusion_counts=dict(pre_base=int((sel.pre_base_packets > 0).sum()), gap=int((sel.gap_bytes > 0).sum()), byte_conflicts=int((sel.byte_conflicts > 0).sum()),
+                              incomplete_records=int((sel.incomplete_records > 0).sum()), epoch_range_overlaps=int((sel.epoch_range_overlaps > 0).sum()), retransmit_same_flows=int((sel.retransmit_same > 0).sum())),
         row_level_files={n: dict(path=str((arows / n).relative_to(DATA_DIR)), sha256=sha256_file(arows / n)) for n in ("selected_flows.csv", "packets.csv")},
         pcap_excerpts={k: dict(path=str(v.relative_to(DATA_DIR)), sha256=sha256_file(v)) for k, v in excerpts.items()},
         connection_scope="플로우별 [시작-1초, 시작+지속시간+2초] 패킷만, 페이로드>0 패킷만 발췌(SYN·ACK 없음)",
         note="표본 20~25개(첫 공격 후 20분 창, 고정 시드). 레코드 해석은 방향별 재조립 바이트의 TLS 헤더 기준이며 길이 일치만으로 메시지 종류를 확정하지 않는다. "
-             "경계 집계는 길이 일치·gap 0·재정렬 0인 플로우(interpretable)만 쓴다. '미확인'은 경계로 세지 않는다. 표본이 작고 시간 창이 한정돼 대표성이 제한적이다"),
+             "경계 집계는 길이 일치·gap 0·재정렬 0·바이트 충돌 0·미완성 레코드 0·같은 4-튜플 다른 플로우와 시간 범위 겹침 0인 플로우(interpretable)만 쓴다(SYN 없는 발췌라 연결 epoch는 시간 범위로만 구분). '미확인'은 경계로 세지 않는다. 표본이 작고 시간 창이 한정돼 대표성이 제한적이다"),
         ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     pd.set_option("display.width", 250, "display.max_colwidth", 90)
     print(sel.groupby("group").lengths_match_flows_csv.agg(["sum", "count"]))
