@@ -3,7 +3,7 @@ import random
 import pytest
 
 from src.track_b.collect import (CELL_SPECS, CORRECT_LEN, PASSWORD, check_quota, episode_plan, episode_problem, estimate_offset, failonly_cells, first_request_index,
-                                 breakdown, expected_groups, group_offsets, match, password_for, round_episodes, run_phase)
+                                 breakdown, expected_groups, group_offsets, is_clean, match, password_for, round_episodes, run_phase)
 from src.track_b.pcap_flows import Flow
 
 
@@ -164,3 +164,13 @@ def test_metadata_git_unknown_is_none_not_clean(monkeypatch):
     args = type("A", (), dict(seed=1, host="h", train_rounds=1, test_rounds=1, wait_after=0, pad=0))()
     meta = c.run_metadata(args)
     assert meta["git_dirty_src_tests"] is None and meta["git_commit"] is None and len(meta["files_sha256"]["collect.py"]) == 64
+
+
+def test_is_clean_accepts_empty_skipped_dict_and_rejects_problems():
+    # 회귀: skipped가 빈 딕셔너리일 때 `skipped == 0`이 거짓이라 항상 불합격이 나왔다
+    ok = [(flow(50000, 1.0), {})]
+    assert is_clean({}, 0, 0, ok)
+    assert not is_clean({"fragment": 1}, 0, 0, ok) and not is_clean({}, 1, 0, ok) and not is_clean({}, 0, 1, ok)
+    mid = flow(50001, 2.0)
+    mid.midstream = True
+    assert not is_clean({}, 0, 0, [(mid, {})])

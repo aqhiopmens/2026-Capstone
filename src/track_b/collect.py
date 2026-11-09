@@ -581,6 +581,11 @@ def read_jsonl(paths):
     return [json.loads(line) for path in paths for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def is_clean(skipped, over_mss, hs_fail, matched):
+    """건너뛴 패킷 없음·MSS 초과 0·핸드셰이크 실패 0·매칭된 플로우 중 중간 시작 없음(skipped는 딕셔너리라 `== 0`이 아니라 비어 있는지로 본다)."""
+    return not skipped and over_mss == 0 and hs_fail == 0 and not any(flow.midstream for flow, _ in matched)
+
+
 def match_main(args):
     from src.track_b.pcap_flows import K_MAX, assemble_flows
     flows, skipped, tcp_packets = assemble_flows(args.pcap, ports=tuple(SERVERS.values()))
@@ -629,7 +634,7 @@ def match_main(args):
                  quota_ok=not check_quota(logs, exp_cells),
                  gap_ok=set(gaps) == set(SERVERS) and all(v >= MIN_GAP_S for v in gaps.values()),
                  extra_ok=len(unmatched_flows) <= EXTRA_MAX * max(len(flows), 1),  # 로그에 없는 여분 연결(다른 접속·재시도 누락 등)
-                 clean_ok=skipped == 0 and over_mss == 0 and hs_fail == 0 and not any(flow.midstream for flow, _ in matched),
+                 clean_ok=is_clean(skipped, over_mss, hs_fail, matched),
                  round_clock_ok=all(abs(x) <= ROUND_RESID_MAX_S for g in goff.values() for x in g["resid_by_round"].values()))  # 실행 중 시계가 튄 라운드 검출
     report = dict(flows=len(flows), tcp_packets=tcp_packets, pcap_skipped=skipped, flows_with_segment_over_mss=over_mss, runner_rows=len(logs),
                   server_log_rows=len(server_log), server_handshake_failures=hs_fail, matched=len(matched), unmatched_flows=len(unmatched_flows),
