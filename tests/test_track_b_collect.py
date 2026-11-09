@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from src.track_b.collect import (CELL_SPECS, CORRECT_LEN, PASSWORD, check_quota, episode_plan, episode_problem, estimate_offset, first_request_index,
+from src.track_b.collect import (CELL_SPECS, CORRECT_LEN, PASSWORD, check_quota, episode_plan, episode_problem, estimate_offset, failonly_cells, first_request_index,
                                  breakdown, expected_groups, group_offsets, match, password_for, round_episodes, run_phase)
 from src.track_b.pcap_flows import Flow
 
@@ -25,29 +25,47 @@ def test_plans_identical_across_classes_except_outcome():
 
 
 def test_cell_quota_normal_7_2_1_and_m_multiset():
-    types = [episode_plan("normal", f, m)[0] for f, m in CELL_SPECS]
+    fo = failonly_cells(0, "requests")
+    types = [episode_plan("normal", f, m, (f, m) in fo)[0] for f, m in CELL_SPECS]
     assert sorted(types) == ["failonly"] * 2 + ["none"] + ["success"] * 7
+    assert ("GET", 1) not in fo
     assert sorted(m for _, m in CELL_SPECS) == [1, 1, 2, 2, 3, 3, 4, 4, 5, 6]
     assert sum(f == "GET" for f, m in CELL_SPECS if m >= 2) == 4  # m≥2 첫 요청 GET 4 / POST 4
     # 정상 성공 에피소드의 마지막 요청만 올바른 암호
     rng = random.Random(0)
-    ok = [r for t, rs in (episode_plan("normal", f, m) for f, m in CELL_SPECS) for r in rs if r["expect_ok"]]
+    ok = [r for t, rs in (episode_plan("normal", f, m, (f, m) in fo) for f, m in CELL_SPECS) for r in rs if r["expect_ok"]]
     assert len(ok) == 7 and all(password_for(r, rng) == PASSWORD for r in ok)
 
 
+def test_failonly_rotates_over_all_nine_login_cells_and_is_balanced():
+    # 실패 전용이 특정 칸에 고정되면 "그 칸에서 실패로 끝남 = 공격"이 된다: 9라운드에 구현마다 9칸이 정확히 2번씩
+    for impl in ("requests", "curl"):
+        count = {}
+        for rnd in range(9):
+            fo = failonly_cells(rnd, impl)
+            assert len(fo) == 2 and ("GET", 1) not in fo
+            for c in fo:
+                count[c] = count.get(c, 0) + 1
+        assert sorted(count.values()) == [2] * 9 and set(count) == set(CELL_SPECS) - {("GET", 1)}
+    # 시험 10라운드(20칸)도 칸별 횟수 차이 ≤1
+    c10 = [sum((f in failonly_cells(r, "curl")) for r in range(10)) for f in CELL_SPECS[1:]]
+    assert max(c10) - min(c10) <= 1
+
+
 def test_round_has_10_per_cell_plus_browse_and_check_quota():
-    eps = round_episodes(random.Random(0))
+    eps = round_episodes(random.Random(0), 3)
     main = [e for e in eps if e[4] == "main"]
     assert len(main) == 40 and len(eps) == 44
     rows = []
-    for ep_no, (cls, impl, first, m, subset) in enumerate(main):
-        ep_type, reqs = episode_plan(cls, first, m)
+    for ep_no, (cls, impl, first, m, subset, failonly) in enumerate(main):
+        ep_type, reqs = episode_plan(cls, first, m, failonly)
         rows.append(dict(server_name="S1", phase="train", round=1, impl=impl, cls=cls, subset="main", ep_type=ep_type, m=m, first=first, episode=ep_no,
                          kinds="".join(r["method"][0] for r in reqs), pw_lens=[r["pw_len"] for r in reqs], auth_ok=[r["expect_ok"] for r in reqs]))
     assert check_quota(rows) == []
     rows[0]["pw_lens"] = [99]
     assert check_quota(rows)  # 배정표가 어긋나면 위반으로 잡힌다
     rows[0]["pw_lens"] = [r["pw_len"] for r in episode_plan(rows[0]["cls"], rows[0]["first"], rows[0]["m"])[1]]
+    assert check_quota(rows) == []  # 배정이 맞으면 통과(실패 전용 치우침 검사 포함, 한 라운드만이라 차이 ≤1)
     rows[0]["auth_ok"] = [not x for x in rows[0]["auth_ok"]]
     assert any("인증 결과" in v for v in check_quota(rows))  # 인증 결과가 배정과 다르면 위반
 
@@ -135,6 +153,14 @@ def test_partial_connections_survive_exception(monkeypatch, tmp_path):
     log, att = c.Log(tmp_path / "l.jsonl"), c.Log(tmp_path / "a.jsonl")
     args = type("A", (), {"host": "10.0.0.1"})()
     with pytest.raises(RuntimeError):  # 쿼터를 못 채우면 중단
-        run_phase(args, "S1", "train", [[("normal", "curl", "GET", 1, "main")]], random.Random(0), log, att)
+        run_phase(args, "S1", "train", [[("normal", "curl", "GET", 1, "main", False)]], random.Random(0), log, att)
     rows = [_json.loads(l) for l in (tmp_path / "a.jsonl").read_text(encoding="utf-8").splitlines()]
     assert rows and rows[0]["conns"] == [["10.0.0.2", 51234]] and rows[0]["reason"].startswith("error:")
+
+
+def test_metadata_git_unknown_is_none_not_clean(monkeypatch):
+    import src.track_b.collect as c
+    monkeypatch.setattr(c, "git", lambda *a: None)  # git이 없는 PC
+    args = type("A", (), dict(seed=1, host="h", train_rounds=1, test_rounds=1, wait_after=0, pad=0))()
+    meta = c.run_metadata(args)
+    assert meta["git_dirty_src_tests"] is None and meta["git_commit"] is None and len(meta["files_sha256"]["collect.py"]) == 64

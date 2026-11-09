@@ -12,6 +12,7 @@
 import argparse
 import csv
 import datetime as dt
+import hashlib
 import json
 import os
 import platform
@@ -35,8 +36,14 @@ ALNUM = string.ascii_letters + string.digits
 
 # ---------- 사전 고정: 라운드 칸당 10연결 배정표 (문서 1절) ----------
 GET_FIRST_M, POST_FIRST_M = [2, 3, 4, 6], [2, 3, 4, 5]  # m≥2 첫 요청 GET 50% / POST 50%, m 다중집합 {1,1,2,2,3,3,4,4,5,6}
-FAIL_ONLY = {("GET", 4), ("POST", 3)}  # 정상 실패 전용 2/10
 CELL_SPECS = [("GET", 1), ("POST", 1)] + [("GET", m) for m in GET_FIRST_M] + [("POST", m) for m in POST_FIRST_M]
+LOGIN_CELLS = CELL_SPECS[1:]  # 정상 실패 전용 2/10은 GET 1(요청 하나뿐)을 뺀 9칸에 라운드마다 돌려 배정한다(고정하면 "그 칸에서 실패로 끝남 = 공격"이 된다)
+
+
+def failonly_cells(rnd, impl):
+    """라운드 rnd(0부터)·구현 impl에서 정상이 실패 전용으로 끝나는 칸 2개. 9라운드 한 바퀴에 칸마다 정확히 2번(구현당)."""
+    k = 4 * (impl == "curl")
+    return {LOGIN_CELLS[(2 * rnd + k + j) % len(LOGIN_CELLS)] for j in (0, 1)}
 BROWSE_PER_CELL = 2  # 정상 칸 참고 부분집합(subset=browse), 주 지표 제외
 
 
@@ -45,11 +52,12 @@ def pw_len(m, i, last):
     return CORRECT_LEN if last else 6 + ((3 * m + 5 * i) % 9)
 
 
-def episode_plan(cls, first, m):
-    """에피소드 하나의 요청 배정표. 반환 (ep_type, [dict(method, path, pw_len, expect_ok)]). 정상과 공격이 같은 (first, m)에서 같은 요청 종류·같은 길이를 갖는다."""
+def episode_plan(cls, first, m, failonly=False):
+    """에피소드 하나의 요청 배정표. 반환 (ep_type, [dict(method, path, pw_len, expect_ok)]). 정상과 공격이 같은 (first, m)에서 같은 요청 종류·같은 길이를 갖는다.
+    failonly: 정상이 끝까지 실패하는 에피소드(공격과 응답 결과가 같음)."""
     if m == 1 and first == "GET":
         return "none", [dict(method="GET", path="/login", pw_len=None, expect_ok=False)]
-    ep_type = "failonly" if (cls == "normal" and (first, m) in FAIL_ONLY) else "success" if cls == "normal" else "fail"
+    ep_type = ("failonly" if failonly else "success") if cls == "normal" else "fail"
     reqs = [dict(method="GET", path="/login", pw_len=None, expect_ok=False)] if first == "GET" else []
     for _ in range(m - len(reqs)):
         i = len(reqs)
@@ -73,10 +81,11 @@ def password_for(req, rng):
             return pw
 
 
-def round_episodes(rng):
-    """한 라운드의 모든 에피소드(칸당 10 + 정상 참고 2)를 시드 고정으로 섞는다. 항목: (cls, impl, first, m, subset)."""
-    eps = [(cls, impl, first, m, "main") for cls in ("normal", "attack") for impl in ("requests", "curl") for first, m in CELL_SPECS]
-    eps += [("normal", impl, 0, 0, "browse") for impl in ("requests", "curl") for _ in range(BROWSE_PER_CELL)]
+def round_episodes(rng, rnd=0):
+    """한 라운드(rnd: 0부터)의 모든 에피소드(칸당 10 + 정상 참고 2)를 시드 고정으로 섞는다. 항목: (cls, impl, first, m, subset, failonly)."""
+    fo = {impl: failonly_cells(rnd, impl) for impl in ("requests", "curl")}
+    eps = [(cls, impl, first, m, "main", cls == "normal" and (first, m) in fo[impl]) for cls in ("normal", "attack") for impl in ("requests", "curl") for first, m in CELL_SPECS]
+    eps += [("normal", impl, 0, 0, "browse", False) for impl in ("requests", "curl") for _ in range(BROWSE_PER_CELL)]
     rng.shuffle(eps)
     return eps
 
@@ -303,8 +312,8 @@ def run_phase(args, server, phase, plan, rng, log, attempts):
     쿼터를 못 채우거나 연속 실패가 쌓이면 중단한다(수량 기준을 낮추지 않음). 모든 시도를 attempts에 남긴다(실패 시도의 클라이언트 포트 포함)."""
     port, ep_no, last_end, consecutive = SERVERS[server], 0, 0.0, 0
     for rnd, episodes in enumerate(plan, 1):
-        for cls, impl, first, m, subset in episodes:
-            ep_type, reqs = browse_plan() if subset == "browse" else episode_plan(cls, first, m)
+        for cls, impl, first, m, subset, failonly in episodes:
+            ep_type, reqs = browse_plan() if subset == "browse" else episode_plan(cls, first, m, failonly)
             ep_no += 1
             for attempt in range(1, MAX_ATTEMPTS + 1):
                 t_ep, conns = time.time(), []  # conns는 예외가 나도 그때까지 맺은 연결(포트)을 남긴다
@@ -349,7 +358,10 @@ def run_metadata(args):
         requests_v = f"{requests.__version__} urllib3 {urllib3.__version__}"
     except Exception:
         requests_v = None
-    return dict(git_commit=git("rev-parse", "HEAD"), git_dirty_src_tests=bool(git("status", "--porcelain", "--", "src", "tests")), seed=args.seed,
+    dirty = git("status", "--porcelain", "--", "src", "tests")  # git이 없으면 None(깨끗한지 알 수 없음). false로 기록하지 않는다
+    src = Path(__file__).resolve().parent
+    sha = {n: hashlib.sha256((src / n).read_bytes()).hexdigest() for n in ("collect.py", "pcap_flows.py") if (src / n).exists()}
+    return dict(git_commit=git("rev-parse", "HEAD"), git_dirty_src_tests=None if dirty is None else bool(dirty), files_sha256=sha, seed=args.seed,
                 host=args.host, python=platform.python_version(), openssl=ssl.OPENSSL_VERSION, requests=requests_v, curl_path=curl_path(),
                 curl=ver([curl_path(), "-V"]), platform=platform.platform(), train_rounds=args.train_rounds, test_rounds=args.test_rounds,
                 wait_after=args.wait_after, pad=args.pad, started=dt.datetime.now().isoformat(timespec="seconds"))
@@ -360,7 +372,7 @@ def run(args):
     log, attempts = Log(args.log), Log(args.attempts)
     Path(args.log).with_suffix(".meta.json").write_text(json.dumps(run_metadata(args), indent=2, ensure_ascii=False) + chr(10), encoding="utf-8")
     sched, rng = random.Random(args.seed), random.Random(args.seed + 1)  # 일정(라운드 순서)과 암호·간격을 분리: 재시도가 있어도 일정은 같다
-    plans = {(phase, server): [round_episodes(sched) for _ in range(rounds)]
+    plans = {(phase, server): [round_episodes(sched, rnd) for rnd in range(rounds)]
              for phase, rounds in (("train", args.train_rounds), ("test", args.test_rounds)) for server in SERVERS}
     last_end = {}
     for phase in ("train", "test"):
@@ -391,6 +403,7 @@ def capture(args):
 MSS = 1460  # 이더넷 MSS(Windows는 TCP timestamps를 쓰지 않아 1460). 이보다 큰 payload가 보이면 LSO·RSC로 합쳐진 것(1448은 timestamps 사용 시 값이라 틀림)
 MIN_REF = 30  # 시계 offset 기준 연결 수 최소값(미달이면 파일럿 불합격, offset=0으로 대체하지 않음)
 MAD_MAX_S, LOST_MAX, MIN_GAP_S = 0.2, 0.02, 600.0  # 파일럿 승인 기준(문서 3절·2절)
+EXTRA_MAX, ROUND_RESID_MAX_S = 0.02, 0.2  # 여분 플로우 비율 상한, 라운드별 시계 잔차 중앙값 상한(초)
 
 
 def expected_groups(train_rounds, test_rounds):
@@ -492,7 +505,9 @@ def check_quota(rows, expected_cells=None):
     for cls in ("normal", "attack"):
         plans = [(f, m, episode_plan(cls, f, m)) for f, m in CELL_SPECS]
         ref[cls] = sorted((f, m, "".join(q["method"][0] for q in reqs), tuple(q["pw_len"] for q in reqs)) for f, m, (_, reqs) in plans)
-        ref[cls + "_auth"] = {(f, m): [q["expect_ok"] for q in reqs] for f, m, (_, reqs) in plans}
+    # 인증 결과 기준은 에피소드 유형(success/failonly/none/fail)별로 배정표에서 다시 만든다
+    auth = {(cls, f, m, t): [q["expect_ok"] for q in episode_plan(cls, f, m, t == "failonly")[1]]
+            for cls in ("normal", "attack") for f, m in CELL_SPECS for t in ("success", "failonly", "none", "fail")}
     for k in (expected_cells or []):
         if k not in cells:
             bad.append(f"{k}: 칸이 비어 있음(연결 0)")
@@ -501,12 +516,23 @@ def check_quota(rows, expected_cells=None):
         if got != ref[k[4]]:
             bad.append(f"{k}: (first,m,종류,암호 길이) 배정이 기준표와 다름(연결 {len(rs)})")
         for r in rs:
-            if list(r["auth_ok"]) != ref[k[4] + "_auth"][(r["first"], r["m"])]:
+            if list(r["auth_ok"]) != auth.get((k[4], r["first"], r["m"], r["ep_type"])):
                 bad.append(f"{k}: 인증 결과가 배정과 다름 episode={r['episode']}")
         if k[4] == "normal":
             n = {t: sum(r["ep_type"] == t for r in rs) for t in ("success", "failonly", "none")}
             if n != {"success": 7, "failonly": 2, "none": 1}:
                 bad.append(f"{k}: 정상 구성 {n} != 7/2/1")
+    # 실패 전용이 특정 칸에 몰리지 않아야 한다: (서버, 단계, 구현)마다 칸별 횟수 차이 ≤1
+    fo = {}
+    for (sv, ph, _, impl, cls), rs in cells.items():
+        if cls == "normal":
+            c = fo.setdefault((sv, ph, impl), {cell: 0 for cell in LOGIN_CELLS})
+            for r in rs:
+                if r["ep_type"] == "failonly":
+                    c[(r["first"], r["m"])] = c.get((r["first"], r["m"]), 0) + 1
+    for k, c in fo.items():
+        if max(c.values()) - min(c.values()) > 1:
+            bad.append(f"{k}: 실패 전용이 칸에 치우침 {sorted(c.items())}")
     return bad
 
 
@@ -601,7 +627,10 @@ def match_main(args):
     pilot = dict(mad_ok=all(g["mad"] <= MAD_MAX_S for g in goff.values()),
                  lost_ok=len(main_cells) == n_expected_labels and all(v["lost_frac"] <= LOST_MAX for v in main_cells.values()),
                  quota_ok=not check_quota(logs, exp_cells),
-                 gap_ok=set(gaps) == set(SERVERS) and all(v >= MIN_GAP_S for v in gaps.values()))
+                 gap_ok=set(gaps) == set(SERVERS) and all(v >= MIN_GAP_S for v in gaps.values()),
+                 extra_ok=len(unmatched_flows) <= EXTRA_MAX * max(len(flows), 1),  # 로그에 없는 여분 연결(다른 접속·재시도 누락 등)
+                 clean_ok=skipped == 0 and over_mss == 0 and hs_fail == 0 and not any(flow.midstream for flow, _ in matched),
+                 round_clock_ok=all(abs(x) <= ROUND_RESID_MAX_S for g in goff.values() for x in g["resid_by_round"].values()))  # 실행 중 시계가 튄 라운드 검출
     report = dict(flows=len(flows), tcp_packets=tcp_packets, pcap_skipped=skipped, flows_with_segment_over_mss=over_mss, runner_rows=len(logs),
                   server_log_rows=len(server_log), server_handshake_failures=hs_fail, matched=len(matched), unmatched_flows=len(unmatched_flows),
                   unmatched_logs=len(unmatched_logs), ambiguous=len(ambiguous), by_label=by_label,
