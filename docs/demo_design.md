@@ -14,9 +14,9 @@
 ## 사용할 모델 (평가 ID·입력·클래스 순서, Codex 요청으로 고정)
 - **평가 ID**: `track_b_four_class_2026-11-08_v2`(결과 `outputs/results/track_b_four_class_2026-11-08_v2/`, 저장 예측 `DATA_DIR/predictions/track_b_four_class_2026-11-08_v2/predictions.csv.gz`·`holdout_predictions.csv.gz`, 설명 `docs/track_b_four_class.md`). 이 실행의 `code_sha256`(`src/track_b/four_class.py` `7fdc6790…`)이 `b/four-class` 브랜치 `9f80a0e` 이후의 파일과 같고, 행별 예측을 저장했으므로 재학습 예측과의 일치 확인에 쓸 수 있다. 첫 실행 `..._v1`(코드 `19806fd`, SHA `2097b7f6…`, Python 3.12.14)과 주 결과(RF `seq` k=10 전체 시험 macro-F1 0.8449)는 같지만 환경이 달라(v2는 Python 3.14.3) 문서에서 섞어 인용하지 않는다. 두 실행의 메타데이터에는 `git_commit`·`machine`이 비어 있다.
 - **입력**: 원본 `seq`, k=10 — 연결의 처음 30칸 구조(`seq_0..seq_29`)에서 앞 10칸만 남기고 나머지는 0(부호 = 방향, 길이 = 페이로드 바이트, 값이 없으면 0 패딩). 앞 3칸 마스킹(`seq_mask3`)은 비교·한계 설명에만 쓴다. **원본 입력을 쓴다고 쉬운 구분 단서(도구·서버·캡처) 문제가 해결된 것은 아니다.**
-- **클래스 순서**: `benign, probing, bruteforce_xml, bruteforce_https`(`CLASSES`; 확률 열·혼동 행렬 순서). 분류는 `predict_proba` argmax(동률은 `model.classes_` 순서).
+- **클래스 순서**: `benign, probing, bruteforce_xml, bruteforce_https`(`CLASSES`)는 **화면 표시·혼동 행렬의 순서**다. **확률 열은 `model.classes_`(사전순)를 따른다**(아래 "구현 전 확정 3항목" 1). 분류는 `predict_proba` argmax(동률은 `model.classes_` 순서).
 - **모델·시드**: RF(`make_model("rf")`, 100그루, `class_weight="balanced"`). 평가는 시드 0·1·2의 평균이다. **시연 모델은 시드 0으로 고정**한다. 성능을 비교해 고른 것이 아니라 미리 정한 대표 실행이다.
-- **점수 표시 구분**: 시연 모델에는 **검증한 시드 0의 성능**을 연결하고, 기존 3시드 평균은 평가 요약으로 별도 표시한다. 재학습 예측이 기존 행별 예측과 다르면 새 평가 ID로 다시 측정하고 기존 점수를 시연 모델 성능으로 붙이지 않는다.
+- **점수 표시 구분**: 시연 모델에는 **검증한 시드 0의 성능**을 연결하고, 기존 3시드 평균은 평가 요약으로 별도 표시한다. 시연용으로 **재학습하면 항상 새 평가 ID**로 기록하고, 같은 행의 예측이 기존 저장 예측과 같음을 확인했을 때만 기존 점수를 출처와 함께 인용한다(다르면 새 ID로 다시 측정하고 기존 점수를 붙이지 않는다).
 - **학습 자료**: HTTPS 04-11, XML 04-12, Probing 캡처 앞 70%(종료 ≤ T), 정상은 각 캡처의 비피해자 443 플로우. 시험: HTTPS 04-16, XML 04-17, Probing 뒤 30%. **알려진 한계**: 새 피해자 .88.81의 공격은 전부 정상으로 판정(recall 0), 캡처 단위 잠정 라벨(Probing은 CSV로 확인 불가), 공격 유형마다 도구·서버·캡처가 하나씩이라 유형 구분과 캡처 구분이 분리되지 않음, k=10에서 학습에 없던 공격 유형의 경보율은 0.
 
 ## 구현 전 확정 3항목 (Codex)
