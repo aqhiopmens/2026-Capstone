@@ -12,12 +12,17 @@
 - **10개 미만 연결**: 판정 시점에 "10개 미도달"로 표시하고, 실제 연결 종료를 확인한 뒤에 0 패딩으로 분류한 결과를 보여준다(10개 관측 후의 조기 판정과 구분). 캡처가 중간에 끊긴 연결은 실제 종료와 구분해 표시한다.
 
 ## 사용할 모델 (평가 ID·입력·클래스 순서, Codex 요청으로 고정)
-- **평가 ID**: `track_b_four_class_2026-11-08_v1`(결과 `outputs/results/` 해당 폴더, 설명 `docs/track_b_four_class.md`), 코드 `src/track_b/four_class.py`(SHA-256 `2097b7f6…15af`, 메타데이터 `code_sha256`). 이 실행의 메타데이터에는 `git_commit`·`machine`이 비어 있다. 시연용으로 **다시 학습하면 새 평가 ID로 기록**하고 기존 점수를 그대로 붙이지 않는다.
+- **평가 ID**: `track_b_four_class_2026-11-08_v2`(결과 `outputs/results/track_b_four_class_2026-11-08_v2/`, 저장 예측 `DATA_DIR/predictions/track_b_four_class_2026-11-08_v2/predictions.csv.gz`·`holdout_predictions.csv.gz`, 설명 `docs/track_b_four_class.md`). 이 실행의 `code_sha256`(`src/track_b/four_class.py` `7fdc6790…`)이 `b/four-class` 브랜치 `9f80a0e` 이후의 파일과 같고, 행별 예측을 저장했으므로 재학습 예측과의 일치 확인에 쓸 수 있다. 첫 실행 `..._v1`(코드 `19806fd`, SHA `2097b7f6…`, Python 3.12.14)과 주 결과(RF `seq` k=10 전체 시험 macro-F1 0.8449)는 같지만 환경이 달라(v2는 Python 3.14.3) 문서에서 섞어 인용하지 않는다. 두 실행의 메타데이터에는 `git_commit`·`machine`이 비어 있다.
 - **입력**: 원본 `seq`, k=10 — 연결의 처음 30칸 구조(`seq_0..seq_29`)에서 앞 10칸만 남기고 나머지는 0(부호 = 방향, 길이 = 페이로드 바이트, 값이 없으면 0 패딩). 앞 3칸 마스킹(`seq_mask3`)은 비교·한계 설명에만 쓴다. **원본 입력을 쓴다고 쉬운 구분 단서(도구·서버·캡처) 문제가 해결된 것은 아니다.**
 - **클래스 순서**: `benign, probing, bruteforce_xml, bruteforce_https`(`CLASSES`; 확률 열·혼동 행렬 순서). 분류는 `predict_proba` argmax(동률은 `model.classes_` 순서).
 - **모델·시드**: RF(`make_model("rf")`, 100그루, `class_weight="balanced"`). 평가는 시드 0·1·2의 평균이다. **시연 모델은 시드 0으로 고정**한다. 성능을 비교해 고른 것이 아니라 미리 정한 대표 실행이다.
 - **점수 표시 구분**: 시연 모델에는 **검증한 시드 0의 성능**을 연결하고, 기존 3시드 평균은 평가 요약으로 별도 표시한다. 재학습 예측이 기존 행별 예측과 다르면 새 평가 ID로 다시 측정하고 기존 점수를 시연 모델 성능으로 붙이지 않는다.
 - **학습 자료**: HTTPS 04-11, XML 04-12, Probing 캡처 앞 70%(종료 ≤ T), 정상은 각 캡처의 비피해자 443 플로우. 시험: HTTPS 04-16, XML 04-17, Probing 뒤 30%. **알려진 한계**: 새 피해자 .88.81의 공격은 전부 정상으로 판정(recall 0), 캡처 단위 잠정 라벨(Probing은 CSV로 확인 불가), 공격 유형마다 도구·서버·캡처가 하나씩이라 유형 구분과 캡처 구분이 분리되지 않음, k=10에서 학습에 없던 공격 유형의 경보율은 0.
+
+## 구현 전 확정 3항목 (Codex)
+1. **확률과 공격 유형의 연결**: 화면은 모델이 내놓는 확률의 열을 **`model.classes_`로 확인해** 클래스 이름에 연결한다. 위 `CLASSES` 순서(`benign, probing, bruteforce_xml, bruteforce_https`)와 같다고 가정하지 않는다. 실제로 scikit-learn은 `classes_`를 사전순(`benign, bruteforce_https, bruteforce_xml, probing`)으로 정렬하므로 순서를 가정하면 공격 유형이 잘못 표시된다. 테스트: `classes_`를 기준으로 열→이름 매핑을 만들고, 평가 경로의 argmax 결과와 대시보드 경로의 판정이 같은지 확인한다.
+2. **재학습은 항상 새 평가 ID**: 시연용으로 새로 학습한 모델은 새 ID로 기록한다. 같은 행의 예측이 기존 저장 예측(`..._v2`)과 같음을 확인했을 때만 기존 점수를 출처(평가 ID·시드 0)와 함께 인용한다.
+3. **구현 시작 코드 버전**: 문서 브랜치(`docs/demo-design`)에는 `four_class.py`가 없다. 구현 브랜치는 **`b/four-class` 브랜치의 `a234bf0`(평가 코드가 있는 정확한 커밋)에서 만들고** 이 시연 문서(`aaa6dc2` 이후)를 가져온다. 구현 코드는 문서 확정 뒤 별도 브랜치에서 진행한다.
 
 ## 화면 4개 (최소 구현)
 1. **자료 선택**: pcap 파일, 검증된 모델(4클래스 RF, k=10 고정). "저장된 pcap 재생"임을 상단에 표시. 실험용 정답 라벨은 **평가 화면에만** 쓰고 모델 입력에서 제외한다.
