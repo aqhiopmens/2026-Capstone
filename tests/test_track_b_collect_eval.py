@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.track_b.collect_eval import boot_summary, build_counts, check_complete, select_columns, split_fold
+from src.track_b.collect_eval import boot_summary, build_counts, check_complete, select_columns, split_design, split_fold
 
 SERVERS = ("S1", "S2", "S3")
 
@@ -154,3 +154,94 @@ def test_check_complete_rejects_missing_fold_or_seed_rows():
         check_complete(ok[ok.fold != "S2"], seeds=(0, 1), folds=("S1", "S2"))
     with pytest.raises(ValueError):  # 행 수가 셀마다 다르면 거절
         check_complete(ok.iloc[:-1], seeds=(0, 1), folds=("S1", "S2"))
+
+
+def test_mixed_and_confounded_are_equal_size_share_test_rows_and_follow_registered_allocation():
+    f = frame()
+    mixed, conf = split_design(f, "mixed", seed=20261110), split_design(f, "confounded", seed=20261110)
+    for d in (mixed, conf):
+        tr = f.loc[d["train"]]
+        assert len(tr) == 1200 and tr.cls.value_counts().to_dict() == {"normal": 600, "attack": 600} and set(tr.phase) == {"train"}
+        assert not set(d["train"]) & set(d["test"])
+    assert list(mixed["test"]) == list(conf["test"]) and len(mixed["test"]) == 1200 and set(f.loc[mixed["test"], "phase"]) == {"test"}
+    assert f.loc[mixed["train"]].groupby(["server", "impl", "cls"]).size().eq(100).all()              # 6셀×2클래스 100행씩
+    c = f.loc[conf["train"]]
+    assert set(c[c.cls == "attack"].server) == {"S1"} and c[c.cls == "attack"].groupby("impl").size().eq(300).all()
+    assert set(c[c.cls == "normal"].server) == {"S2", "S3"} and c[c.cls == "normal"].groupby(["server", "impl"]).size().eq(150).all()
+    again = split_design(f, "mixed", seed=20261110)
+    assert list(again["train"]) == list(mixed["train"])                                              # 같은 시드면 같은 추출
+    assert list(split_design(f, "mixed", seed=1)["train"]) != list(mixed["train"])
+
+
+def test_leave_one_impl_out_trains_on_one_impl_and_tests_on_the_other_with_equal_amounts():
+    f = frame()
+    a, b = split_design(f, "impl:requests>curl", seed=0), split_design(f, "impl:curl>requests", seed=0)
+    for d, (tr_impl, te_impl) in ((a, ("requests", "curl")), (b, ("curl", "requests"))):
+        tr, te = f.loc[d["train"]], f.loc[d["test"]]
+        assert set(tr.impl) == {tr_impl} and set(tr.phase) == {"train"} and len(tr) == 1800 and tr.cls.value_counts().eq(900).all()
+        assert set(te.impl) == {te_impl} and set(te.phase) == {"test"} and len(te) == 600 and te.cls.value_counts().eq(300).all()
+        assert set(tr.server) == set(te.server) == {"S1", "S2", "S3"}
+    with pytest.raises(ValueError):
+        split_design(f, "nope", seed=0)
+
+
+def rich_frame():
+    f = frame()
+    rng = np.random.default_rng(0)
+    for i in range(30):
+        f[f"seq_{i}"] = rng.integers(-300, 300, len(f))
+    f["ep_type"] = np.where(f.cls == "attack", "fail", "success")
+    for k in (5, 10, 15):
+        f[f"t_k{k}"] = np.where(rng.random(len(f)) < 0.2, np.nan, 0.05)
+    f["payload_packets"] = 30
+    return f
+
+
+def test_evaluate_and_summarize_design_path_with_perfect_stub_model(monkeypatch):
+    import src.track_b.collect_eval as ce
+
+    def perfect(frame, x, s, seed, workers, model="rf"):
+        t = frame.loc[s["test"]]
+        return pd.DataFrame(dict(row=s["test"], predicted=np.where(t.cls == "attack", "attack", "normal"), p_attack=(t.cls == "attack").astype(float)))
+
+    monkeypatch.setattr(ce, "fit_predict", perfect)
+    f = rich_frame()
+    base = dict(ce.BASE)
+    plan = [dict(base, cond="none"), dict(base, cond="label")] + [dict(base, cond="none", n=0, window=0, design=d) for d in ("mixed", "confounded", "impl:requests>curl")]
+    pred, manifest = ce.evaluate(f, plan)
+    des = pred[pred.design != "loso"]
+    assert set(des.fold) == {"S1", "S2", "S3"} and (des.fold == des.server).all()      # 설계 비교의 폴드 = 시험 행의 서버
+    idx = np.broadcast_to(np.arange(10), (4, 3, 10))
+    s, by_fold, cells, subsets = ce.summarize(pred, idx)
+    assert len(s) == 5 and (s.macro_f1 == 1.0).all() and "server" in cells.columns
+    lab = s[(s.design == "loso") & (s.condition == "label")].iloc[0]
+    assert lab.diff_vs_none == 0.0                                                      # LOSO 적응은 같은 (모델, 입력, k) 무지원과 짝
+    conf = s[s.design == "confounded"].iloc[0]
+    assert conf.diff_vs_mixed == 0.0                                                    # 교락−혼합은 같은 시험 행·같은 재표집으로 paired
+    assert s[s.design == "impl:requests>curl"].diff_vs_mixed.isna().all()                # 구현 빼기는 시험 모집단이 달라 paired 비교 안 함
+
+
+def test_plan2_matches_prereg_5f_list_and_every_loso_adaptation_has_exactly_one_matching_none():
+    import src.track_b.collect_eval as ce
+
+    assert len(ce.PLAN2) == 38
+    loso = [e for e in ce.PLAN2 if e.get("design", "loso") == "loso"]
+    nones = [(e["model"], e["kind"], e["k"]) for e in loso if e["cond"] == "none"]
+    assert len(nones) == len(set(nones)) == 5
+    for e in loso:
+        if e["cond"] != "none":
+            assert (e["model"], e["kind"], e["k"]) in nones                              # 무지원 재사용 짝이 없으면 diff가 조용히 사라진다
+    axes = {(e["model"], e["kind"], e["k"], e["n"], e["window"]) for e in loso if e["cond"] != "none"}
+    assert len(axes) == 7                                                                # 한 축씩: 창2·창3·N6·k5·k15·seq·lgbm
+    assert {e["design"] for e in ce.PLAN2 if "design" in e} == {"mixed", "confounded", "impl:requests>curl", "impl:curl>requests"}
+
+
+def test_latency_counts_unreached_connections_and_never_fills_zero():
+    import src.track_b.collect_eval as ce
+
+    f = rich_frame().iloc[:400]
+    f.loc[f.index[:10], "t_k10"] = np.nan
+    lat = ce.latency(f)
+    r = lat[lat.k == 10]
+    assert (r.reached + r.not_reached == r.rows).all() and (r.median_s > 0).all()      # 미도달은 분모에만, 시간은 도달한 연결만
+    assert "phase" in lat.columns
