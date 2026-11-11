@@ -10,3 +10,6 @@ dependencies = [
     "scikit-learn==1.6.1",
     "torch==2.11.0",
 ]
+
+[project.optional-dependencies]
+demo = ["streamlit==1.67.0", "joblib"]  # 시연 대시보드 app/demo_app.py
