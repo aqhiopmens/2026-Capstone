@@ -16,6 +16,7 @@ from src.track_b.four_class import CLASSES
 
 ROOT = Path(__file__).resolve().parents[1]
 STATUS_KR = {"reached_k": "10개 관측 후 판정", "short_closed_padded": "10개 미도달·종료 확인 후 0패딩 판정", "short_unconfirmed": "10개 미도달·종료 미확인(판정 보류)",
+             "short_late_payload_excluded": "10개 미도달·종료 확인 뒤에도 payload 관측(채점 제외)",
              "midstream_excluded": "중간 시작(SYN 없음)·채점 제외"}
 SOURCE_KR = {"https_0416": "HTTPS 04-16 (알려진 피해자 .242.104 + 정상)", "https_0416_new_victim": "HTTPS 04-16 새 피해자 .88.81 (한계 사례)", "xml_0417": "XML 04-17",
              "probing_test": "Probing 시험 구간"}
@@ -41,7 +42,8 @@ def analyze(path, sha, model_dir, with_labels):
 
 
 demo_dir, model_root = DATA_DIR / "demo_pcaps", DATA_DIR / "models"
-pcaps = sorted(p.stem for p in demo_dir.glob("*.pcap") if Path(str(p) + ".match.csv").exists()) if demo_dir.exists() else []
+has_inputs = lambda p: Path(str(p) + ".match.csv").exists() and "orig_seq_9" in pd.read_csv(str(p) + ".match.csv", nrows=0).columns  # 입력 일치 검사가 가능한 대응표만
+pcaps = sorted(p.stem for p in demo_dir.glob("*.pcap") if has_inputs(p)) if demo_dir.exists() else []
 models = sorted(p.name for p in model_root.glob("track_b_demo_*")) if model_root.exists() else []
 t1, t2, t3, t4 = st.tabs(["① 자료 선택", "② 연결 목록", "③ 연결 상세", "④ 평가 요약"])
 
@@ -69,6 +71,10 @@ with t1:
 if path and model_name:
     sha = file_sha256(path)
     conn, timing = analyze(path, sha, str(model_root / model_name), with_labels)
+    if conn.empty:
+        for t in (t2, t3, t4):
+            t.info("분석할 연결이 없습니다(payload가 있는 443 연결 0개).")
+        st.stop()
     show = conn.assign(상태=conn.status.map(STATUS_KR), 판정=conn.predicted.map(NAME_KR)).assign(
         확률=conn[[c for c in conn.columns if c.startswith("p_")]].max(axis=1))
     with t2:
@@ -99,7 +105,8 @@ if path and model_name:
             if with_labels:
                 s = score_connections(conn)
                 st.write(f"전체 연결 {s['total']} · 정답 매칭 {s['matched']} · **실제 채점 {s['scored']}** (분모는 payload>0 연결 기준)  \n"
-                         f"제외: 중간 시작 {s['excluded_midstream']} · 종료 미확인 {s['excluded_short_unconfirmed']} · 매칭 실패 {s['unmatched']} · 후보 여러 개 {s['ambiguous']}  \n"
+                         f"제외: 중간 시작 {s['excluded_midstream']}(그중 대응표에 없어 매칭 실패 {s['excluded_midstream_unmatched']}, 합계에 중복 계산하지 않음) · 종료 미확인 {s['excluded_short_unconfirmed']} · "
+                         f"종료 뒤 payload 혼입 {s['excluded_late_payload']} · 그 밖의 매칭 실패 {s['unmatched'] - s['excluded_midstream_unmatched']} · 후보 여러 개 {s['ambiguous']} · 입력 불일치 {s['excluded_input_mismatch']}  \n"
                          f"10개 미도달 {s['short_total']}개({s['short_ratio']:.1%}) 중 종료 확인 후 0패딩 판정 {s['short_closed_padded']}개")
                 st.write(f"정상 오탐 {s['benign_false_alarms']} / 정상 채점 {s['benign_scored']}")
                 st.dataframe(s["confusion"].rename(index=NAME_KR, columns=NAME_KR))

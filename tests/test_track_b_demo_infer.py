@@ -103,3 +103,36 @@ def test_scoring_capacity_counts_per_group_before_any_prediction():
                              match=["matched", "matched", "ambiguous", "matched"], input_match=[True, True, True, True]))
     cap = scoring_capacity(conn).set_index("group")
     assert cap.loc["a", "rows"] == 3 and cap.loc["a", "scorable"] == 1 and cap.loc["b", "scorable"] == 0                # 라벨 수가 아니라 채점 가능 수
+
+
+def test_short_connection_with_payload_after_closure_evidence_is_flagged():
+    from src.track_b.demo_infer import late_payload
+
+    f = flow(payload=4, start=100.0, times=[0.1, 0.2, 0.3, 3.0])                                                   # 3초에 관측한 payload가 있다
+    assert late_payload(f, t_close=102.0) is True                                                                   # 종료 증거(시작 2초)보다 뒤의 payload가 모델 입력에 섞인다
+    assert late_payload(f, t_close=104.0) is False
+    assert late_payload(f, t_close=None) is False
+
+
+def test_pcap_without_connections_returns_empty_table_instead_of_crashing(tmp_path):
+    import src.track_b.demo_infer as di
+    from src.common.models import make_model
+
+    path = tmp_path / "empty.pcap"
+    path.write_bytes(b"\xd4\xc3\xb2\xa1" + b"\x02\x00\x04\x00" + bytes(12) + (1).to_bytes(4, "little"))            # 헤더만 있는 classic pcap
+    model = make_model("rf", seed=0, workers=1).fit(pd.DataFrame(np.zeros((8, 30)) + np.arange(8)[:, None], columns=[f"seq_{i}" for i in range(30)]),
+                                                    ["benign", "probing", "bruteforce_xml", "bruteforce_https"] * 2)
+    conn, timing = di.analyze_pcap(str(path), model)
+    assert conn.empty and timing["connections"] == 0
+
+
+def test_incomplete_original_input_columns_stop_scoring():
+    from src.track_b.demo_infer import K
+
+    conn = pd.DataFrame(dict(client_ip=["1.1.1.1"], client_port=[1], server_ip=["9.9.9.9"], start_ts=[10.0], **{f"len_{i}": [1] for i in range(K)}))
+    table = pd.DataFrame(dict(pcap_sha256=["abc"], client_ip=["1.1.1.1"], client_port=[1], server_ip=["9.9.9.9"], start_ts=[10.0], orig_flow_id=[1], label=["benign"],
+                              **{f"orig_seq_{i}": [1] for i in range(K - 1)}))                                       # orig_seq_9가 빠졌다
+    with pytest.raises(ValueError):
+        match_to_original(conn, table, "abc")
+    with pytest.raises(ValueError):
+        match_to_original(conn, table.drop(columns=[c for c in table if c.startswith("orig_seq_")]), "abc")        # 열이 아예 없어도 입력 검사를 못 하므로 중단

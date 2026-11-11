@@ -58,6 +58,11 @@ def close_evidence(flow, events):
     return rst, set(fin_first), (min(candidates) if candidates else None)
 
 
+def late_payload(flow, t_close):
+    """종료 증거를 확인한 시각보다 뒤에 관측한 payload가 입력에 섞였는가. 섞였다면 그 연결은 "종료를 확인한 뒤 판정"이 아니므로 채점에서 뺀다."""
+    return t_close is not None and any(t > t_close - flow.start_ts + 1e-9 for t in flow.times)
+
+
 def observation_wait(flow, status, t_close):
     if status == "reached_k":
         return flow.times[K - 1]
@@ -85,6 +90,8 @@ def match_to_original(conn, table, pcap_sha256):
     merged = left.merge(counts, on=key, how="left").fillna({"n_candidates": 0})
     merged = merged.merge(right.drop_duplicates(key, keep=False), on=key, how="left")
     merged["match"] = np.select([merged.n_candidates == 1, merged.n_candidates > 1], ["matched", "ambiguous"], "unmatched")
+    if all(f"len_{i}" in conn for i in range(K)) and not all(f"orig_seq_{i}" in table for i in range(K)):
+        raise ValueError("대응표에 orig_seq_0..9가 모두 있어야 입력 일치를 검사할 수 있습니다. 이 대응표로는 채점하지 않습니다")
     if all(f"orig_seq_{i}" in merged for i in range(K)) and all(f"len_{i}" in merged for i in range(K)):
         same = np.logical_and.reduce([merged[f"len_{i}"] == merged[f"orig_seq_{i}"] for i in range(K)])
         merged["input_match"] = np.where(merged.match == "matched", same, True)
@@ -99,11 +106,13 @@ def score_connections(conn):
     scored = conn[conn.status.isin(SCORABLE) & (conn.match == "matched") & im]
     cm = pd.crosstab(scored.actual, scored.predicted).reindex(index=list(CLASSES), columns=list(CLASSES), fill_value=0)
     benign = scored[scored.actual == "benign"]
-    short = conn.status.isin(("short_closed_padded", "short_unconfirmed"))
+    short = conn.status.isin(("short_closed_padded", "short_unconfirmed", "short_late_payload_excluded"))
     return dict(total=len(conn), matched=int((conn.match == "matched").sum()), scored=len(scored), unmatched=int((conn.match == "unmatched").sum()),
                 ambiguous=int((conn.match == "ambiguous").sum()), excluded_midstream=int((conn.status == "midstream_excluded").sum()),
                 excluded_input_mismatch=int((conn.status.isin(SCORABLE) & (conn.match == "matched") & ~im).sum()),
-                excluded_short_unconfirmed=int((conn.status == "short_unconfirmed").sum()), short_closed_padded=int((conn.status == "short_closed_padded").sum()),
+                excluded_short_unconfirmed=int((conn.status == "short_unconfirmed").sum()),
+                excluded_late_payload=int((conn.status == "short_late_payload_excluded").sum()),
+                excluded_midstream_unmatched=int(((conn.status == "midstream_excluded") & (conn.match == "unmatched")).sum()), short_closed_padded=int((conn.status == "short_closed_padded").sum()),
                 short_total=int(short.sum()), short_ratio=float(short.mean()) if len(conn) else float("nan"), benign_scored=len(benign),
                 benign_false_alarms=int((benign.predicted != "benign").sum()), confusion=cm)
 
@@ -130,12 +139,18 @@ def analyze_pcap(path, model):
     t0 = time.perf_counter()
     flows, skipped, tcp_packets = assemble_flows(path)
     flows = [f for f in flows if f.payload_packets > 0]
+    if not flows:  # 분석할 연결이 없으면 빈 표를 돌려준다(화면이 안내 문구를 띄운다)
+        return pd.DataFrame(columns=["client_ip", "client_port", "server_ip", "start_ts", "payload_packets", "midstream", "status", "observation_wait_s", "rst",
+                                     "fin_directions", "predicted"]), dict(parse_and_assemble_s=time.perf_counter() - t0, features_s=0.0, predict_s=0.0,
+                                                                          total_s=time.perf_counter() - t0, connections=0, tcp_packets=tcp_packets, skipped=skipped)
     events = events_from_packets(p for p, _ in iter_tcp_packets(path))
     t1 = time.perf_counter()
     rows = []
     for f in flows:
         rst, fin_dirs, t_close = close_evidence(f, events)
         status = classify_status(f.midstream, f.payload_packets, rst, fin_dirs)
+        if status == "short_closed_padded" and late_payload(f, t_close):
+            status = "short_late_payload_excluded"
         rows.append(dict(client_ip=f.client_ip, client_port=f.client_port, server_ip=f.server_ip, start_ts=f.start_ts, payload_packets=f.payload_packets,
                          midstream=f.midstream, status=status, observation_wait_s=observation_wait(f, status, t_close), rst=rst, fin_directions=len(fin_dirs)))
     conn = pd.DataFrame(rows)
