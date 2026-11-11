@@ -17,6 +17,8 @@ from src.track_b.four_class import CLASSES
 ROOT = Path(__file__).resolve().parents[1]
 STATUS_KR = {"reached_k": "10개 관측 후 판정", "short_closed_padded": "10개 미도달·종료 확인 후 0패딩 판정", "short_unconfirmed": "10개 미도달·종료 미확인(판정 보류)",
              "midstream_excluded": "중간 시작(SYN 없음)·채점 제외"}
+SOURCE_KR = {"https_0416": "HTTPS 04-16 (알려진 피해자 .242.104 + 정상)", "https_0416_new_victim": "HTTPS 04-16 새 피해자 .88.81 (한계 사례)", "xml_0417": "XML 04-17",
+             "probing_test": "Probing 시험 구간"}
 NAME_KR = {"benign": "정상", "probing": "Probing", "bruteforce_xml": "Bruteforce-XML", "bruteforce_https": "Bruteforce-HTTPS"}
 
 st.set_page_config(page_title="저장된 pcap 분석 · 판정 시점 표시", layout="wide")
@@ -49,15 +51,15 @@ with t1:
     source = c2.radio("자료", ["시연 pcap(정답 대응표 있음)", "다른 pcap 올리기(정답 없음)"], horizontal=True)
     path, with_labels = None, False
     if source.startswith("시연") and pcaps:
-        choice = st.selectbox("시연 pcap", pcaps)
+        choice = st.selectbox("시연 pcap", pcaps, index=next((i for i, n in enumerate(pcaps) if n.endswith("_64")), 0))
         path, with_labels = str(demo_dir / f"{choice}.pcap"), True
-        st.caption("시연 pcap은 시험 구간 원본의 앞부분을 규칙(앞에서부터 N MiB)대로 자른 것이며 결과를 보고 고르지 않았습니다. 정답 라벨은 ④평가 요약 채점에만 쓰고 모델 입력에서 제외합니다.")
+        st.caption("시연 pcap은 시험 캡처의 시험 구간 시작점부터 같은 크기(64 MiB)를 규칙대로 자른 것입니다. N은 모델 예측을 보지 않고 라벨 구성만으로 정했으며, 처음 만든 HTTPS 앞 10 MiB를 먼저 확인한 뒤 고정한 **시연용으로 추가 구성한 사례**입니다. 정답 라벨은 ④평가 요약 채점에만 쓰고 모델 입력에서 제외합니다.")
     elif source.startswith("다른"):
         up = st.file_uploader("classic libpcap(.pcap)", type=["pcap"])
         if up:
-            tmp = Path(tempfile.gettempdir()) / up.name
-            tmp.write_bytes(up.getvalue())
-            path = str(tmp)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pcap") as tmp:
+                tmp.write(up.getvalue())
+            path = tmp.name
     if model_name:
         meta = load_model(model_root / model_name)[1]
         st.markdown(f"**모델** `{meta['run_id']}` · 원 평가 `{meta['source_eval_id']}` · RF 시드 {meta['seed']} · k={meta['k']} · 입력 원본 `seq`  \n"
@@ -101,6 +103,13 @@ if path and model_name:
                          f"10개 미도달 {s['short_total']}개({s['short_ratio']:.1%}) 중 종료 확인 후 0패딩 판정 {s['short_closed_padded']}개")
                 st.write(f"정상 오탐 {s['benign_false_alarms']} / 정상 채점 {s['benign_scored']}")
                 st.dataframe(s["confusion"].rename(index=NAME_KR, columns=NAME_KR))
+                if "source" in conn:
+                    ok = conn[conn.status.isin(("reached_k", "short_closed_padded")) & (conn.match == "matched") & conn.input_match]
+                    by = ok.assign(맞힘=ok.predicted == ok.actual).groupby(["source", "actual"]).agg(채점=("맞힘", "size"), 맞힘=("맞힘", "sum")).reset_index()
+                    by["재현율"] = (by.맞힘 / by.채점).round(3)
+                    by["그룹"] = by.source.map(SOURCE_KR).fillna(by.source)
+                    st.caption("그룹별 채점(HTTPS는 피해자별). 새 피해자 .88.81은 학습에 없던 한계 사례입니다.")
+                    st.dataframe(by[["그룹", "actual", "채점", "맞힘", "재현율"]].rename(columns={"actual": "실제"}).assign(실제=lambda d: d.실제.map(NAME_KR)), hide_index=True)
                 st.caption("행 = 실제, 열 = 예측. 이 시연 자료의 결과이며 연구 전체 성능이 아닙니다.")
             else:
                 st.info("정답 대응표가 없는 pcap이라 채점하지 않습니다.")
@@ -117,7 +126,8 @@ if path and model_name:
         st.divider()
         st.subheader("처리시간 vs 관측 대기시간(별도)")
         st.write(f"프로그램 처리시간: 파싱·조립 {timing['parse_and_assemble_s']:.3f}s · 특징 {timing['features_s']:.3f}s · 예측 {timing['predict_s']:.3f}s (합 {timing['total_s']:.3f}s, 연결 {timing['connections']:,}개, 이 노트북 측정)  \n"
-                 f"관측 대기시간(패킷 시각 기준, 10번째 payload 패킷까지) 중앙값 {conn.observation_wait_s.median():.3f}s · 90% {conn.observation_wait_s.quantile(0.9):.3f}s")
+                 f"관측 대기시간(패킷 시각 기준): 10개 관측 후 판정 연결(10번째 payload 패킷까지) 중앙값 {conn[conn.status == 'reached_k'].observation_wait_s.median():.3f}s · 90% {conn[conn.status == 'reached_k'].observation_wait_s.quantile(0.9):.3f}s"
+                 f" / 10개 미도달 종료 확인 후 판정 연결(연결 시작~종료 증거 확인) 중앙값 {conn[conn.status == 'short_closed_padded'].observation_wait_s.median():.3f}s")
 else:
     for t in (t2, t3, t4):
         t.info("① 자료 선택에서 모델과 pcap을 고르세요.")

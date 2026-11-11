@@ -78,3 +78,28 @@ def test_score_connections_denominators_and_confusion():
     assert (s["benign_scored"], s["benign_false_alarms"]) == (2, 1)                                               # 정상 오탐 건수/분모
     cm = s["confusion"]                                                                                             # 행 = 실제, 열 = 예측, 표시 순서 CLASSES
     assert list(cm.index) == ["benign", "probing", "bruteforce_xml", "bruteforce_https"] and cm.loc["benign", "probing"] == 1 and cm.loc["probing", "probing"] == 1
+
+
+def test_input_mismatch_between_cut_and_original_is_excluded_from_scoring_and_counted():
+    from src.track_b.demo_infer import K
+
+    lens = {f"len_{i}": [i + 1, i + 1] for i in range(K)}
+    conn = pd.DataFrame(dict(client_ip=["1.1.1.1", "2.2.2.2"], client_port=[1, 2], server_ip=["9.9.9.9"] * 2, start_ts=[10.0, 20.0],
+                             status=["reached_k", "reached_k"], predicted=["benign", "benign"], **lens))
+    orig = {f"orig_seq_{i}": [i + 1, i + 1] for i in range(K)}
+    orig["orig_seq_3"] = [4, 999]                                                                                  # 두 번째 연결만 원본 입력과 다르다
+    table = pd.DataFrame(dict(pcap_sha256=["abc"] * 2, client_ip=["1.1.1.1", "2.2.2.2"], client_port=[1, 2], server_ip=["9.9.9.9"] * 2, start_ts=[10.0, 20.0],
+                              orig_flow_id=[1, 2], label=["benign", "benign"], source=["s", "s"], **orig))
+    m = match_to_original(conn, table, "abc")
+    assert m.input_match.tolist() == [True, False]
+    s = score_connections(m)
+    assert (s["scored"], s["excluded_input_mismatch"]) == (1, 1)
+
+
+def test_scoring_capacity_counts_per_group_before_any_prediction():
+    from src.track_b.demo_infer import scoring_capacity
+
+    conn = pd.DataFrame(dict(source=["a", "a", "a", "b"], status=["reached_k", "short_unconfirmed", "reached_k", "midstream_excluded"],
+                             match=["matched", "matched", "ambiguous", "matched"], input_match=[True, True, True, True]))
+    cap = scoring_capacity(conn).set_index("group")
+    assert cap.loc["a", "rows"] == 3 and cap.loc["a", "scorable"] == 1 and cap.loc["b", "scorable"] == 0                # 라벨 수가 아니라 채점 가능 수

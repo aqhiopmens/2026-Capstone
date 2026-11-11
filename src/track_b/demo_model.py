@@ -22,9 +22,9 @@ INPUTS = dict(https="processed/track_b_https_2026-11-02_v1/flows.csv", xml="proc
               probing="processed/track_b_https_probing_2026-11-08_v1/flows.csv")
 
 
-def load_data(data_dir):
+def load_data(data_dir, extra=()):
     """four_class.main과 같은 입력·필터·행 순서: payload>0, XML 라벨 치환, assign_parts, reset_index."""
-    load = lambda name: pd.read_csv(Path(data_dir) / INPUTS[name], usecols=COLS, keep_default_na=False).query("payload_packets > 0")
+    load = lambda name: pd.read_csv(Path(data_dir) / INPUTS[name], usecols=COLS + list(extra), keep_default_na=False).query("payload_packets > 0")
     https, xml, probing = load("https"), load("xml"), load("probing")
     xml = xml.assign(label=xml.label.replace({"bruteforce_xml": XML}))
     data, boundary = assign_parts(https, xml, probing)
@@ -74,13 +74,18 @@ def save_model(model, out_dir, run_id, data, boundary, data_dir, comparison):
     return meta
 
 
+def check_environment(meta, current_sklearn):
+    """학습 때와 scikit-learn 버전이 다르면 예측이 달라질 수 있으므로 경고가 아니라 거부한다(녹화·시연은 학습 환경으로 고정)."""
+    if meta["environment"]["sklearn"] != current_sklearn:
+        raise RuntimeError(f"학습 sklearn {meta['environment']['sklearn']} != 현재 {current_sklearn}. 학습 환경에서 실행하세요")
+
+
 def load_model(model_dir):
     import joblib
     import sklearn
 
     meta = json.loads((Path(model_dir) / "metadata.json").read_text(encoding="utf-8"))
-    if meta["environment"]["sklearn"] != sklearn.__version__:
-        print(f"경고: 학습 sklearn {meta['environment']['sklearn']} != 현재 {sklearn.__version__}. 예측이 달라질 수 있다")
+    check_environment(meta, sklearn.__version__)
     model = joblib.load(Path(model_dir) / "model.joblib")
     assert list(map(str, model.classes_)) == meta["model_classes"], "classes_ 순서가 메타데이터와 다르다"
     return model, meta

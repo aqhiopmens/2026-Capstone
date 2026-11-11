@@ -72,32 +72,49 @@ def model_inputs(flows):
 
 
 def match_to_original(conn, table, pcap_sha256):
-    """대응표(축소 pcap의 SHA에 묶임)로 연결을 원본 시험 행에 매칭한다. 키 = 클라이언트 ip·port, 서버 ip, 시작 시각. 후보가 여러 개면 채점 제외(ambiguous)."""
+    """대응표(축소 pcap의 SHA에 묶임)로 연결을 원본 시험 행에 매칭한다. 키 = 클라이언트 ip·port, 서버 ip, 시작 시각(정수 마이크로초). 후보가 여러 개면 채점 제외(ambiguous).
+    대응표에 원본 앞 10개 값(`orig_seq_0..9`)이 있으면 잘린 파일의 입력(`len_0..9`)과 같은지(`input_match`)도 계산한다."""
     if not (table.pcap_sha256 == pcap_sha256).all():
         raise ValueError("대응표가 이 pcap(SHA)용이 아닙니다")
-    key = ["client_ip", "client_port", "server_ip", "start_ts"]
-    left = conn.assign(start_ts=conn.start_ts.round(6))
-    extra = [c for c in ("orig_payload_packets",) if c in table]
-    right = table.assign(start_ts=table.start_ts.round(6))[key + ["orig_flow_id", "label"] + extra]
+    us = lambda ts: (ts * 1e6).round().astype("int64")
+    key = ["client_ip", "client_port", "server_ip", "start_us"]
+    left = conn.assign(start_us=us(conn.start_ts))
+    extra = [c for c in table.columns if c in ("orig_payload_packets", "source") or c.startswith("orig_seq_")]
+    right = table.assign(start_us=us(table.start_ts))[key + ["orig_flow_id", "label"] + extra]
     counts = right.groupby(key).size().rename("n_candidates").reset_index()
     merged = left.merge(counts, on=key, how="left").fillna({"n_candidates": 0})
-    one = right.drop_duplicates(key, keep=False)
-    merged = merged.merge(one, on=key, how="left")
+    merged = merged.merge(right.drop_duplicates(key, keep=False), on=key, how="left")
     merged["match"] = np.select([merged.n_candidates == 1, merged.n_candidates > 1], ["matched", "ambiguous"], "unmatched")
-    return merged.rename(columns={"label": "actual"}).drop(columns="n_candidates").assign(start_ts=conn.start_ts.to_numpy())
+    if all(f"orig_seq_{i}" in merged for i in range(K)) and all(f"len_{i}" in merged for i in range(K)):
+        same = np.logical_and.reduce([merged[f"len_{i}"] == merged[f"orig_seq_{i}"] for i in range(K)])
+        merged["input_match"] = np.where(merged.match == "matched", same, True)
+    else:
+        merged["input_match"] = True
+    return merged.rename(columns={"label": "actual"}).drop(columns=["n_candidates", "start_us"])
 
 
 def score_connections(conn):
     """채점 분모: 전체 연결(payload>0) / 정답 매칭 / 실제 채점(판정 가능 상태 ∧ 매칭) / 제외·미도달 건수. 혼동행렬은 표시 순서(CLASSES)."""
-    scored = conn[conn.status.isin(SCORABLE) & (conn.match == "matched")]
+    im = conn.input_match if "input_match" in conn else pd.Series(True, index=conn.index)
+    scored = conn[conn.status.isin(SCORABLE) & (conn.match == "matched") & im]
     cm = pd.crosstab(scored.actual, scored.predicted).reindex(index=list(CLASSES), columns=list(CLASSES), fill_value=0)
     benign = scored[scored.actual == "benign"]
     short = conn.status.isin(("short_closed_padded", "short_unconfirmed"))
     return dict(total=len(conn), matched=int((conn.match == "matched").sum()), scored=len(scored), unmatched=int((conn.match == "unmatched").sum()),
                 ambiguous=int((conn.match == "ambiguous").sum()), excluded_midstream=int((conn.status == "midstream_excluded").sum()),
+                excluded_input_mismatch=int((conn.status.isin(SCORABLE) & (conn.match == "matched") & ~im).sum()),
                 excluded_short_unconfirmed=int((conn.status == "short_unconfirmed").sum()), short_closed_padded=int((conn.status == "short_closed_padded").sum()),
                 short_total=int(short.sum()), short_ratio=float(short.mean()) if len(conn) else float("nan"), benign_scored=len(benign),
                 benign_false_alarms=int((benign.predicted != "benign").sum()), confusion=cm)
+
+
+def scoring_capacity(conn):
+    """새 예측을 보기 전에 그룹(`source`가 있으면 source, 없으면 actual)마다 실제 채점 가능 수를 센다: 유일 매칭·입력 일치·판정 가능 상태(중간 시작·종료 미확인 제외)."""
+    group = "source" if "source" in conn else "actual"
+    im = conn.input_match if "input_match" in conn else pd.Series(True, index=conn.index)
+    ok = conn.status.isin(SCORABLE) & (conn.match == "matched") & im
+    return pd.DataFrame(dict(group=conn[group], rows=1, matched=(conn.match == "matched").astype(int), input_match=(im & (conn.match == "matched")).astype(int),
+                             scorable=ok.astype(int))).groupby("group").sum().reset_index()
 
 
 def file_sha256(path):

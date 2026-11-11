@@ -43,3 +43,12 @@ def test_compare_keys_and_labels_requires_same_keys_without_duplicates():
     assert out["keys_equal"] is False
     dup = pd.concat([ours, ours.iloc[:1]])
     assert compare_keys_and_labels(dup, saved)["duplicates"] == 1
+
+
+def test_environment_mismatch_is_rejected_not_just_warned():
+    from src.track_b.demo_model import check_environment
+
+    meta = dict(environment=dict(sklearn="1.8.0"))
+    check_environment(meta, "1.8.0")
+    with pytest.raises(RuntimeError):
+        check_environment(meta, "1.6.1")
