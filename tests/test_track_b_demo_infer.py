@@ -136,3 +136,13 @@ def test_incomplete_original_input_columns_stop_scoring():
         match_to_original(conn, table, "abc")
     with pytest.raises(ValueError):
         match_to_original(conn, table.drop(columns=[c for c in table if c.startswith("orig_seq_")]), "abc")        # 열이 아예 없어도 입력 검사를 못 하므로 중단
+
+
+def test_late_payload_compares_integer_microseconds_so_same_packet_is_not_late():
+    from src.track_b.demo_infer import late_payload
+
+    start, close = 1618152936.140891, 1618152936.67027                                                             # 실제 캡처 같은 시각: close-start가 0.52937889…라 6자리 반올림값(0.529379)이 더 크다
+    rel = round(close - start, 6)                                                                                  # 플로우에는 이렇게 반올림된 상대 시각이 저장된다
+    f = flow(payload=2, start=start, times=[0.1, rel])
+    assert late_payload(f, t_close=close) is False                                                                 # 같은 패킷의 payload는 늦게 온 것이 아니다
+    assert late_payload(flow(payload=2, start=start, times=[0.1, round(rel + 1e-6, 6)]), t_close=close) is True   # 1마이크로초 뒤는 늦은 것

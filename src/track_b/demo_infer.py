@@ -60,7 +60,10 @@ def close_evidence(flow, events):
 
 def late_payload(flow, t_close):
     """종료 증거를 확인한 시각보다 뒤에 관측한 payload가 입력에 섞였는가. 섞였다면 그 연결은 "종료를 확인한 뒤 판정"이 아니므로 채점에서 뺀다."""
-    return t_close is not None and any(t > t_close - flow.start_ts + 1e-9 for t in flow.times)
+    if t_close is None:
+        return False
+    us = lambda x: int(round(x * 1e6))  # payload 시각은 상대값을 6자리로 반올림해 저장되므로, 양쪽을 정수 마이크로초로 맞춰 비교한다(같은 패킷은 늦은 것이 아니다)
+    return any(us(flow.start_ts) + us(t) > us(t_close) for t in flow.times)
 
 
 def observation_wait(flow, status, t_close):
